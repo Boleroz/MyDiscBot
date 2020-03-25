@@ -1,0 +1,28 @@
+{
+  "name": "mydiscbot",
+  "version": "1.0.0",
+  "description": "EVERYTHING HERE IS A WORK IN PROGRESS",
+  "main": "mybot.js",
+  "bin": "mybot.js",
+  "dependencies": {
+    "always-tail": "^0.2.0",
+    "csv-parse": "^4.8.8",
+    "discord.js": "^12.0.2",
+    "googleapis": "^48.0.0",
+    "xml2json": "^0.12.0"
+  },
+  "devDependencies": {},
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Boleroz/MyDiscBot.git"
+  },
+  "author": "",
+  "license": "GPL-2.0-only",
+  "bugs": {
+    "url": "https://github.com/Boleroz/MyDiscBot/issues"
+  },
+  "homepage": "https://github.com/Boleroz/MyDiscBot#readme"
+}
