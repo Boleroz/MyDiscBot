@@ -1,5 +1,5 @@
 {
-  "name": "mydiscbot",
+  "name": "MyBot",
   "version": "1.0.0",
   "description": "EVERYTHING HERE IS A WORK IN PROGRESS",
   "main": "mybot.js",
@@ -7,7 +7,7 @@
   "dependencies": {
     "always-tail": "^0.2.0",
     "csv-parse": "^4.8.8",
-    "discord.js": "^12.0.2",
+    "discord.js": "^11.5.1",
     "googleapis": "^48.0.0",
     "xml2json": "^0.12.0"
   },

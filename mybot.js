@@ -1597,7 +1597,7 @@ function loadBaseTimers() {
       instance = bases[x].id;
       instanceStorage = {};
       instanceStorage.SkipAccountMinutes = 9; // if we see a 9 in minutes suggests we created it
-      instanceStorage.SkipAccountTime = (now - (4*60*60)) / 1000; // four hours ago converted to unixtime so it can be converted to epoc below
+      instanceStorage.SkipAccountTime = (now - (4*60*60*1000)) / 1000; // four hours ago converted to unixtime so it can be converted to epoc below
     }
     if ( !instanceStorage.LSSAutoShield ) { 
       instanceStorage.LSSAutoShield = {      
