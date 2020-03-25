@@ -1592,7 +1592,7 @@ function loadBaseTimers() {
     storageFile = storageDirectory + x + "_data.json";
     if ( fileExists(storageFile) ) {
       // using bases means we don't need instance but there are cases where we would so not changing the underlying implementation
-      [instance, instanceStorage] = loadStorageFile(storageDirectory + files[x]);
+      [instance, instanceStorage] = loadStorageFile(storageFile);
     } else { // there is no storage. fill in what we need.
       instance = bases[x].id;
       instanceStorage = {};
