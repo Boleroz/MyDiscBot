@@ -1149,6 +1149,7 @@ function loadBaseConfigs() {
     debugIt("Sanity check: " + bases[a].name + ":" + bases[a].id + ":" + LSSConfig[a].Account.Id, 1);
     debugIt(util.inspect(LSSConfig[a], true, 7, true), 4);
     debugIt("Handling Account number " + a + " ID of " + bases[a].id, 2);
+    bases[a].processed = false; // always set to not processed on new load
     if ( config.manageActiveBasesTime > 0 ) { // not managing active state. set to configured state.
       bases[a].storedActiveState = paused_config[a].Account.Active;
     } else {
@@ -1372,15 +1373,14 @@ function updateStats() {
   // Of course this should be passed around and such but...
   // track these globally so we can check in on them any time
   elapsedTime = timeDiffMinutes(new Date(), startTime);
-  totalProcessed = 0;
-  for (var num in sessions) {
-    if (sessions[num].id != 9999) {
-      totalProcessed += sessions[num].processed;      
-    }
-  }
+  totalProcessed = getProcessedBaseCount(); // use the tracked processed flag
+//  for (var num in sessions) {
+//    if (sessions[num].id != 9999) {
+//      totalProcessed += sessions[num].processed;      
+//    }
+//  }
   averageProcessingTime = Math.round(( elapsedTime * config.GNBotThreads ) / totalProcessed);
-  averageCycleTime = Math.round((Number(bases.length) / Number(config.GNBotThreads)) * averageProcessingTime);
-  
+  averageCycleTime = Math.round((Number(getActiveBaseCount()) / Number(config.GNBotThreads)) * averageProcessingTime);
 }
 
 function resetStats() {
@@ -1396,13 +1396,13 @@ function resetStats() {
 
 function checkCycleTime() {
   updateStats()
-  if ( config.minimumCycleTime > 0 && averageCycleTime > 0 && totalProcessed > (bases.length + config.GNBotThreads)) {
+  if ( config.minimumCycleTime > 0 && averageCycleTime > 0 && getProcessedBaseCount() > (getActiveBaseCount() + config.GNBotThreads + config.GNBotRestartFullCycle)) {
     if ( !paused && ( averageCycleTime < config.minimumCycleTime) ) { 
       SendIt(9999, status_channel, "```diff\n - **CAUTION**: A full cycle has completed too fast. Pausing to make up the difference.```");
       pauseBot(config.minimumCycleTime - averageCycleTime, 0);
     } else {
       // okay, not up against minimums but still need to see if we are restarting on full cycle
-      if  (!paused && config.GNBotRestartFullCycle > 0 && getProcessedBaseCount() > getActiveBaseCount() ) { 
+      if  (!paused && config.GNBotRestartFullCycle > 0 && ( getProcessedBaseCount() + config.GNBotRestartFullCycle ) > getActiveBaseCount() ) { 
         SendIt(9999, status_channel, "```diff\n + Restarting GNBot on full cycle completion by config (GNBotRestartFullCycle)```")
         restartBot(); 
       }
@@ -1427,17 +1427,14 @@ function getStatusMessage(detailed = false) {
     }
   }
 
-  msg += "I have been monitoring since " + startTime.toLocaleString() + " for a total of " + elapsedTime + " minutes\n";
-  msg += "I am monitoring " + config.GNBotThreads + " sessions and there are " + countProcess(config.memuProcessName) + " sessions active\n";
+  msg += "I have been working for you for " + elapsedTime + " minutes\n";
+  msg += "There are " +  countProcess(config.memuProcessName) + ":" + config.GNBotThreads + " active sessions\n";
   if ( count.length > 0 ) {
     msg += "There are **" + count.length + "** shields **expired or expiring within the hour**\n";
   }
-  msg += "A total of " + totalProcessed + " instances have been handled in " + elapsedTime + " minutes with " + config.GNBotThreads + " sessions\n";
-  msg += "resulting in an average processing time of " + averageProcessingTime + " minutes\n";
-  msg += "There are " + bases.length + " instances resulting in an estimated cycle time of " + averageCycleTime + " minutes\n";
-  if (totalProcessed <= bases.length) {
-    msg += "NOTE: Estimates will be more accurate after all bases are processed.\n"
-  }
+  msg += "A total of " + totalProcessed + " instances have been handled in " + elapsedTime + " minutes\n";
+  msg += "with an average processing time of " + averageProcessingTime + " minutes\n";
+  msg += "There are " + bases.length + " instances for a cycle time(est) of " + averageCycleTime + " minutes\n";
   if ( detailed ) { 
     msg += "=============================================\n";
     for (var num in sessions) {
@@ -1445,6 +1442,10 @@ function getStatusMessage(detailed = false) {
         msg += `Session #${num} has processed ${sessions[num].processed} bases in ${timeDiffHoursMinutes(new Date, startTime)} and is processing **${sessions[num].name}**` + "\n";
       }
     }
+    msg += "=============================================\n";
+    msg += getProcessedBases() + " \n";
+    msg += "=============================================\n";
+    msg += getBaseSkipTimesMessage() + " \n";
     msg += "=============================================\n";
     msg += getShieldExpireStatusMessage() + "\n";
   }
@@ -1689,7 +1690,7 @@ function getShieldExpireTimes() {
 }
 
 function checkBaseActivities() {
-  var done = false;
+  var done = true; // false says done can never be done
   for ( i=0; i<bases.length; i++ ) {
     if ( bases[i].storedActiveState == false || LSSConfig[i].Account.Active == false ) { 
       // these bases aren't enabled right now
@@ -1741,10 +1742,12 @@ function getBaseSkipTimesMessage() {
   return msg;
 }
 
-function getProcessedBases() {
-  var msg = "";
+function getProcessedBases(all = false) {
+  var msg = "base : default active : currrent active : processed";
   for ( i=0; i<bases.length; i++ ) {
-    msg += bases[i].name + ": " + bases[i].processed + "\n";
+    if ( all || LSSConfig[i].Account.Active ) { // If we want all include otherwise just the active ones
+      msg += bases[i].name + " : " + bases[i].storedActiveState + " : " + LSSConfig[i].Account.Active + " : " + bases[i].processed + "\n";
+    }
   }
   return msg;
 }
