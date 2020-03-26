@@ -330,9 +330,6 @@ msg_order = getOrderMessage();
 
 showReporting();
 
-// make sure threads is correct at startup, will also be done on every bot start. 
-setThreads(config.GNBotThreads);
-
 // watch for the bot process
 if ( config.processWatchTimer > 0) {
   if ( config.processWatchTimer > 100 ) {
@@ -818,12 +815,7 @@ if(typeof(config.ownerID) != 'undefined' && ( message.author.id !== config.owner
     if ( Number.isNaN(threads) ) {
       SendIt(9999, status_channel, "Invalid sessions value, must be a number.");
     } else {
-      config.GNBotThreads = threads;
-      storeJSON(config, configFile);
-      SendIt(9999, status_channel, "Updated sessions to " + threads);
-      SendIt(9999, status_channel, "Updating log monitoring.");
-      checkLogs();
-      watchLogs();
+      config.GNBotThreads = setThreads(threads);
       restartBot();
     }
   } else
@@ -1200,7 +1192,7 @@ function parseShieldAction(action = null) {
 // returns an array of base IDs that will expire with N minutes
 function activateBases(minutes = config.manageActiveBasesTime) {
   var baseList = getSkipExpireList(minutes); // will contain the base index for bases that should go active
-  var shieldList = getExpiredShields(60); // we need to see if a shield will expire and thus should be active
+  var shieldList = getExpiredShields(minutes); // we need to see if a shield will expire and thus should be active
   // ^^^ THis doesn't currently override a skip but worse case it catches it next run
   var msg = "Active bases this run are\n";
   for (i=0; i<bases.length; i++) {
@@ -1311,6 +1303,7 @@ function takeVideoScreenShot(post = false) {
 
 function takeVideo(post = false, length = 30, targetWindow = "desktop") {
   if ( config.disabled ) { return; }
+  // XXX - TODO: make the command string configurable
   if ( length > 180 ) {
     SendIt(9999, status_channel, "video longer than 3 minutes not supported")
     length = 180;
@@ -1335,6 +1328,7 @@ function takeVideo(post = false, length = 30, targetWindow = "desktop") {
 function takeScreenshot(post = config.postStatusScreenshots) {
   if ( config.disabled ) { return; }
   if ( !config.screenshot ) {return;} // If they aren't allowed don't do them
+  // XXX - TODO: make the command string configurable
   var screenshotName = config.screenshotDir + "screenshot" + Date.now() + ".jpg";
   execFileSync(config.nircmd, ["savescreenshotfull",screenshotName], {"timeout":5000});
   if ( post ) {
@@ -1345,6 +1339,7 @@ function takeScreenshot(post = config.postStatusScreenshots) {
 function takeWindowScreenshot(WindowTitle = "Lss", post = config.postStatusScreenshots) {
   if ( config.disabled ) { return; }
   if ( !config.screenshot ) {return;} // If they aren't allowed don't do them
+  // XXX - TODO: make the command string configurable
   var screenshotName = config.screenshotDir + "screenshot" + Date.now() + ".jpg";
   activateWindow(WindowTitle);
   execFileSync(config.nircmd, ["savescreenshotwin",screenshotName], {"timeout":5000});
@@ -1434,7 +1429,7 @@ function getStatusMessage(detailed = false) {
   }
   msg += "A total of " + totalProcessed + " instances have been handled in " + elapsedTime + " minutes\n";
   msg += "with an average processing time of " + averageProcessingTime + " minutes\n";
-  msg += "There are " + bases.length + " instances for a cycle time(est) of " + averageCycleTime + " minutes\n";
+  msg += "There are " + getActiveBaseCount() + "active" + " instances for a cycle time(est) of " + averageCycleTime + " minutes\n";
   if ( detailed ) { 
     msg += "=============================================\n";
     for (var num in sessions) {
@@ -1987,29 +1982,36 @@ function getMasterConfig(targetConfig = getDesiredActiveConfig(), force = false)
 function setConfig(targetConfig = getDesiredActiveConfig(), force = false) {
   // Always reference the master now
   getMasterConfig(targetConfig, force);
+  // make sure we have the latest information
+  LSSConfig = loadJSON(config.GNBotProfile);
+  loadGatherCSV();
+  loadBaseConfigs();
   if (reconfigure) {
     SendIt(9999, status_channel, "Updating gather at positions");
-    // make sure we have the latest information
-    LSSConfig = loadJSON(config.GNBotProfile);
-    loadGatherCSV();
-    loadBaseConfigs();
-    if ( reconfigure ) {
-      storeJSON(makeGathers(), config.GNBotProfile);
-    }
-    if ( config.manageActiveBasesTime > 0 ) {
-      storeJSON(activateBases(), config.GNBotProfile);
-    }
+    storeJSON(makeGathers(), config.GNBotProfile);
+  }
+  if ( config.manageActiveBasesTime > 0 ) {
+    SendIt(9999, status_channel, "Updating pause state for instances");
+    storeJSON(activateBases(), config.GNBotProfile);
   }
 }
 
 function setThreads(threads) {
-  if (LSSSettings.Threads != threads) {
+  var activeCount = getActiveBaseCount();
+  if ( threads > activeCount ) {
+    SendIt(9999, status_channel, "Insufficient active instances for sessions of " + threads + " adjusting to " + activeCount + "\n");
+    threads = activeCount;
+  }
+  if (LSSSettings.Threads != threads ) { 
     debugIt(util.inspect(LSSSettings, true, 10, true), 4);
-    SendIt(9999, status_channel, "Incorrect threads (sessions) setting detected " + LSSSettings.Threads + " should be " + threads + ", correcting.");
+    SendIt(9999, status_channel, "Incorrect sessions (" + LSSSettings.Threads + ") detected. Should be " + threads + ", correcting.");
     LSSSettings.Threads = threads;
     storeJSON(LSSSettings, config.GNBotSettings);
     LSSSettings = loadJSON(config.GNBotSettings);
     debugIt(util.inspect(LSSSettings, true, 10, true), 4);
+    SendIt(9999, status_channel, "Updating log monitoring.");
+    checkLogs();
+    watchLogs();
   }
 }
 
@@ -2081,9 +2083,7 @@ function startBot(targetConfig = getDesiredActiveConfig(), targetBase = "" ){
     paused = 0; // if the bot is running we are not paused
     return;
   }
-  SendIt(9999, status_channel, "Configuring sessions");
   setThreads(config.GNBotThreads);
-  SendIt(9999, status_channel, "Setting configuration");
   setConfig(targetConfig);
   // if we were passed a base to start, start at that base
   if ( typeof(nameMap[targetBase]) != 'undefined' && targetConfig.includes(nameMap[targetBase])) {
