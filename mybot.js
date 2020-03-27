@@ -1100,7 +1100,7 @@ function loadMessages() {
 function loadReporting() {
   var configFile = config.reporting;
   var messages = loadJSON(configFile);
-  configFile.replace(".json",".local.json");
+  configFile = configFile.replace(".json",".local.json");
   if ( fileExists(configFile)) {
     var localMessages = loadJSON(configFile);
     messages = Object.assign(messages, localMessages);

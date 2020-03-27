@@ -2,7 +2,7 @@
 "messages" : {"uri": "https://raw.githubusercontent.com/Boleroz/MyDiscBot/master/messages.json", "SHA1": "118CA287EC81623407384828AD42C5DB4BB08797"},
 "patterns": {"uri": "https://raw.githubusercontent.com/Boleroz/MyDiscBot/master/patterns.json", "SHA1": "356C832191B59FBD7BC0091A795509180B93F319"},
 "reporting": {"uri": "https://raw.githubusercontent.com/Boleroz/MyDiscBot/master/reporting.json", "SHA1": "670D837B32E82B2326E19A19039732D8CAE67C53"},
-"discbot": {"uri": "https://github.com/Boleroz/MyDiscBot/raw/master/Exe/MyBot-win.exe", "SHA1": "93C6606FBFB353B6AC272399DB479637D5E651E8"},
+"discbot": {"uri": "https://github.com/Boleroz/MyDiscBot/raw/master/Exe/MyBot-win.exe", "SHA1": "B7AE1DBCE5335B0AF2986ADC66A904CD3DBD57F7"},
 "expat": {"uri": "https://github.com/Boleroz/MyDiscBot/raw/master/Exe/node_expat.node", "SHA1": "2F64669F0B3A221684844E53F91D1D0C3D97DEFA"},
 "ffmpeg": {"uri": "https://github.com/Boleroz/MyDiscBot/raw/master/Exe/ffmpeg.exe", "SHA1": "415074BEDA6A24C3DADFC56BADF76A80AFB694B6"},
 "nircmd": {"uri": "https://github.com/Boleroz/MyDiscBot/raw/master/Exe/nircmd.exe", "SHA1": "60E2F48A51C061BBA72A08F34BE781354F87AA49"}
