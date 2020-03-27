@@ -1122,6 +1122,7 @@ function loadPatterns() {
 
 // fetch the gather locations from the csv
 function loadGatherCSV() {
+  if ( !reconfigure ) { return; }
   if (fileExists(gatherFile)) {
     gatherMap = CSVparser(fs.readFileSync(gatherFile), {colums: true, skip_empty_lines: true})
     debugIt(util.inspect(gatherMap, true, 10, true), 4);
