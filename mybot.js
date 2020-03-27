@@ -2000,8 +2000,8 @@ function setConfig(targetConfig = getDesiredActiveConfig(), force = false) {
 function setThreads(threads) {
   var activeCount = getActiveBaseCount();
   if ( threads > activeCount ) {
-    SendIt(9999, status_channel, "Insufficient active instances for sessions of " + threads + " adjusting to " + activeCount + "\n");
-    threads = activeCount;
+    SendIt(9999, status_channel, "Insufficient active instances for " + threads + "sessions adjusting to " + activeCount - 1 + "\n");
+    threads = activeCount - 1;
   }
   if (LSSSettings.Threads != threads ) { 
     debugIt(util.inspect(LSSSettings, true, 10, true), 4);
