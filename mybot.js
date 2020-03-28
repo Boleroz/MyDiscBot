@@ -815,7 +815,7 @@ if(typeof(config.ownerID) != 'undefined' && ( message.author.id !== config.owner
     if ( Number.isNaN(threads) ) {
       SendIt(9999, status_channel, "Invalid sessions value, must be a number.");
     } else {
-      config.GNBotThreads = setThreads(threads);
+      config.GNBotThreads = threads;
       restartBot();
     }
   } else
@@ -1201,11 +1201,13 @@ function activateBases(minutes = config.manageActiveBasesTime) {
     bases[i].processed = false; // none of them have been processed yet
     let active = ( shieldList.includes[i] || baseList.includes(i)) && bases[i].storedActiveState;  // only includes Skip & default active base numbers in the bases array
     debugIt("Base: " + bases[i].name + " should be Active:" + active, 1);
+    SendIt(9999, status_channel, "Base: " + bases[i].name + " should be Active:" + active);
     LSSConfig[i].Account.Active = active;
     if ( active ) { // only display the ones that are active
       msg += bases[i].name + " : " + (active ? "unpaused" : "paused") + "\n";
     }
   }
+  SendIt(9999, status_channel, "making " + baseList[0] + " : " + bases[baseList[0]].name + " the starting base");
   setGNBotLastAccount(baseList[0]); // set it to an active instance
   SendIt(9999, status_channel, msg);
   return LSSConfig;
@@ -1687,6 +1689,16 @@ function getShieldExpireTimes() {
 
 function checkBaseActivities() {
   var done = true; // false says done can never be done
+  updateStats();
+  if ( !paused && totalProcessed == 0 && elapsedTime > 30 ) { // running 30 minutes and not processing a base while not paused
+    SendIt(9999, status_channel, "Something is wrong with processing. Trying again.");
+    if ( countProcess(config.processName) > 0 ) {
+      SendIt(9999, status_channel, "Killing GNBot");
+      killProcess(config.processName);
+    }
+    execBot(config.processLaunchDelay); // maybe the start account didn't get set right, just start the bot and see what happens
+    done = false;
+  }
   for ( i=0; i<bases.length; i++ ) {
     if ( bases[i].storedActiveState == false || LSSConfig[i].Account.Active == false ) { 
       // these bases aren't enabled right now
@@ -1847,6 +1859,15 @@ function setGNBotLastAccount(accountID) {
   debugIt("Set GNBot LastAccount to " + accountID, 1);
 }
 
+// XXX - TODO: Test what happens if it isn't there at all
+function deleteGNBotLastAccount() {
+  if ( config.disabled ) { return; }
+  var regExe = "c:/windows/system32/reg.exe";
+  debugIt("Deleting registry key HKEY_CURRENT_USER/Software/GNBots", 2);
+  execFileSync(regExe, ["DELETE", 'HKCU\\Software\\GNBots', "/f", "/v", "LastAccount"]); // delete the old value
+  debugIt("Set GNBot LastAccount to " + accountID, 1);
+}
+
 function countProcess(process_name, cb){
   if ( config.disabled ) { return; }
   debugIt("looking for " + process_name, 2);
@@ -1999,18 +2020,18 @@ function setConfig(targetConfig = getDesiredActiveConfig(), force = false) {
 
 function setThreads(threads) {
   var activeCount = getActiveBaseCount();
-  if ( threads > activeCount ) {
-    SendIt(9999, status_channel, "Insufficient active instances for " + threads + "sessions adjusting to " + activeCount - 1 + "\n");
-    threads = activeCount - 1;
-  }
-  if (LSSSettings.Threads != threads ) { 
+  if (LSSSettings.Threads != threads || threads > activeCount - 1 ) { 
     debugIt(util.inspect(LSSSettings, true, 10, true), 4);
-    SendIt(9999, status_channel, "Incorrect sessions (" + LSSSettings.Threads + ") detected. Should be " + threads + ", correcting.");
+    if ( threads > activeCount - 1 ) {
+      SendIt(9999, status_channel, "Insufficient active instances for " + threads + " sessions adjusting to " + activeCount - 1 + "\n");
+      threads = activeCount - 1;
+    } else {
+      SendIt(9999, status_channel, "Set sessions to " + threads);
+    }
     LSSSettings.Threads = threads;
     storeJSON(LSSSettings, config.GNBotSettings);
-    LSSSettings = loadJSON(config.GNBotSettings);
     debugIt(util.inspect(LSSSettings, true, 10, true), 4);
-    SendIt(9999, status_channel, "Updating log monitoring.");
+    SendIt(9999, status_channel, "Updating log monitoring for " + threads + " sessions");
     checkLogs();
     watchLogs();
   }
@@ -2085,12 +2106,12 @@ function startBot(targetConfig = getDesiredActiveConfig(), targetBase = "" ){
     return;
   }
   setThreads(config.GNBotThreads);
-  setConfig(targetConfig);
+  setConfig(targetConfig); // fixes up the config and sets the first active base as the one to start with
   // if we were passed a base to start, start at that base
   if ( typeof(nameMap[targetBase]) != 'undefined' && targetConfig.includes(nameMap[targetBase])) {
-    setGNBotLastAccount(bases[nameMap[targetBase]]); // this overrides what was done in setConfig
+    setGNBotLastAccount(bases[nameMap[targetBase]]); // this overrides what was done in activateBases through setConfig
   } else {
-    if ( typeof(nameMap[targetBase]) != 'undefined' ) {
+    if ( typeof(nameMap[targetBase]) != 'undefined' ) { // actual base but not active, don't override setConfig
       SendIt(9999, status_channel, "Base " + nameMap[targetBase] + " is not currently active. Using first active base.")
     }
   }
