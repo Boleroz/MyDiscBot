@@ -1200,7 +1200,7 @@ function activateBases(minutes = config.manageActiveBasesTime) {
     debugIt(bases[i].name, 1);
     bases[i].processed = false; // none of them have been processed yet
     let active = ( shieldList.includes[i] || baseList.includes(i)) && bases[i].storedActiveState;  // only includes Skip & default active base numbers in the bases array
-    SendIt(9999, status_channel, "Base: " + bases[i].name + " should be Active:" + active);
+    // SendIt(9999, status_channel, "Base: " + bases[i].name + " should be Active:" + active);
     LSSConfig[i].Account.Active = active;
     // if ( active ) { // only display the ones that are active
       msg += bases[i].name + " : " + (active ? "unpaused" : "paused") + "\n";
