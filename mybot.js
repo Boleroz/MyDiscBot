@@ -1200,12 +1200,12 @@ function activateBases(minutes = config.manageActiveBasesTime) {
     debugIt(bases[i].name, 1);
     bases[i].processed = false; // none of them have been processed yet
     let active = ( shieldList.includes[i] || baseList.includes(i)) && bases[i].storedActiveState;  // only includes Skip & default active base numbers in the bases array
-    debugIt("Base: " + bases[i].name + " should be Active:" + active, 1);
     SendIt(9999, status_channel, "Base: " + bases[i].name + " should be Active:" + active);
     LSSConfig[i].Account.Active = active;
-    if ( active ) { // only display the ones that are active
+    // if ( active ) { // only display the ones that are active
       msg += bases[i].name + " : " + (active ? "unpaused" : "paused") + "\n";
-    }
+      msg += "(name:" + bases[i].name + " id:" + bases[i].id + " i:" + i + " nameMap:" + nameMap[bases[i].name] + " idMap:" + idmap[bases[i].id] + " idMap2:" + idMap[i] + "\n";
+    // }
   }
   SendIt(9999, status_channel, "making " + baseList[0] + " : " + bases[baseList[0]].name + " the starting base");
   setGNBotLastAccount(baseList[0]); // set it to an active instance
@@ -1852,6 +1852,7 @@ function killProcess(process_name, cb){
 function setGNBotLastAccount(accountID) {
   if ( config.disabled ) { return; }
   var regExe = "c:/windows/system32/reg.exe";
+  SendIt(9999, status_channel, "setting start instance to " + accountID);
   debugIt("Editing registry key HKEY_CURRENT_USER/Software/GNBots and setting LastAccount to " + accountID, 2);
 //  execFileSync(regExe, ["DELETE", 'HKCU\\Software\\GNBots', "/f", "/v", "LastAccount"], {cwd: undefined, env: process.env, stdio: [ 'inherit', 'inherit', 'inherit' ]}); // delete the old value
   // execFileSync(regExe, ["ADD", 'HKCU\\Software\\GNBots', "/f", "/v", "LastAccount", "/t", "REG_DWORD", "/d", accountID],{cwd: undefined, env: process.env, stdio: [ 'inherit', 'inherit', 'inherit' ]});
