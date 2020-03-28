@@ -1204,7 +1204,7 @@ function activateBases(minutes = config.manageActiveBasesTime) {
     LSSConfig[i].Account.Active = active;
     // if ( active ) { // only display the ones that are active
       msg += bases[i].name + " : " + (active ? "unpaused" : "paused") + "\n";
-      msg += "(name:" + bases[i].name + " id:" + bases[i].id + " i:" + i + " nameMap:" + nameMap[bases[i].name] + " idMap:" + idmap[bases[i].id] + " idMap2:" + idMap[i] + "\n";
+      msg += "(name:" + bases[i].name + " id:" + bases[i].id + " i:" + i + " nameMap:" + nameMap[bases[i].name] + " idMap:" + idMap[bases[i].id] + " idMap2:" + idMap[i] + "\n";
     // }
   }
   SendIt(9999, status_channel, "making " + baseList[0] + " : " + bases[baseList[0]].name + " the starting base");
