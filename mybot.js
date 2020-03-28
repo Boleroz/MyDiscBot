@@ -1202,13 +1202,13 @@ function activateBases(minutes = config.manageActiveBasesTime) {
     let active = ( shieldList.includes[i] || baseList.includes(i)) && bases[i].storedActiveState;  // only includes Skip & default active base numbers in the bases array
     // SendIt(9999, status_channel, "Base: " + bases[i].name + " should be Active:" + active);
     LSSConfig[i].Account.Active = active;
-    // if ( active ) { // only display the ones that are active
+    if ( active ) { // only display the ones that are active
       msg += bases[i].name + " : " + (active ? "unpaused" : "paused") + "\n";
-      msg += "(name:" + bases[i].name + " id:" + bases[i].id + " i:" + i + " nameMap:" + nameMap[bases[i].name] + " idMap:" + idMap[bases[i].id] + " idMap2:" + idMap[i] + "\n";
-    // }
+//      msg += "(name:" + bases[i].name + " id:" + bases[i].id + " i:" + i + " nameMap:" + nameMap[bases[i].name] + " idMap:" + idMap[bases[i].id] + "\n";
+    }
   }
-  SendIt(9999, status_channel, "making " + baseList[0] + " : " + bases[baseList[0]].name + " the starting base");
-  setGNBotLastAccount(baseList[0]); // set it to an active instance
+  SendIt(9999, status_channel, "making " + bases[baseList[0]].id + " : " + bases[baseList[0]].name + " the starting base");
+  setGNBotLastAccount(bases[baseList[0]].id); // set it to an active instance
   SendIt(9999, status_channel, msg);
   return LSSConfig;
 }
@@ -2110,7 +2110,7 @@ function startBot(targetConfig = getDesiredActiveConfig(), targetBase = "" ){
   setConfig(targetConfig); // fixes up the config and sets the first active base as the one to start with
   // if we were passed a base to start, start at that base
   if ( typeof(nameMap[targetBase]) != 'undefined' && targetConfig.includes(nameMap[targetBase])) {
-    setGNBotLastAccount(bases[nameMap[targetBase]]); // this overrides what was done in activateBases through setConfig
+    setGNBotLastAccount(bases[nameMap[targetBase]].id); // this overrides what was done in activateBases through setConfig
   } else {
     if ( typeof(nameMap[targetBase]) != 'undefined' ) { // actual base but not active, don't override setConfig
       SendIt(9999, status_channel, "Base " + nameMap[targetBase] + " is not currently active. Using first active base.")
