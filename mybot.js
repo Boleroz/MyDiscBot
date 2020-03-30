@@ -130,6 +130,7 @@ var defaultConfig = {
     "6": {"label": "Day 6", "profile": "shield"}
   },
   "gameDayMap": {
+    "active": 0,
     "0": {"label": "Day 7 DD KE", "profile": "default"},
     "1": {"label": "Day 1 Gather", "profile": "default"},
     "2": {"label": "Day 2 Build", "profile": "default"},
@@ -827,9 +828,8 @@ if(typeof(config.ownerID) != 'undefined' && ( message.author.id !== config.owner
       config.activeProfile = profile;
       // disable daily configs
       if ( typeof(config.gameDayMap) != 'undefined' ) {
-        config.gameDayMapDISABLED = config.gameDayMap;
         SendIt(9999, status_channel, "Manual profiles in use. Disabled automatic daily profiles " + profile);
-        config.gameDayMap = undefined;
+        config.gameDayMap.active = 0;
       }
       storeJSON(config, configFile);
       SendIt(9999, status_channel, "Updated active profile to " + profile);
@@ -924,15 +924,18 @@ if(typeof(config.ownerID) != 'undefined' && ( message.author.id !== config.owner
   } else
   if (command === "start") {
     var startMsg = "Start requested";
-    if ( typeof(commandArgs[0]) == 'undefined' || typeof(nameMap[commandArgs[0]]) == 'undefined') { // have a param but it doesn't match a base
-      SendIt(9999, status_channel, "Base Name to start with (" + commandArgs[0] + ") must be an identical match");
-      return;
-    } else { // we have a match
-      startMsg = "Start requested at base " + commandArgs[0];
-    }
+    // we have a base parameter
+    if ( typeof(commandArgs[0]) != 'undefined' ) {
+      if ( typeof(nameMap[commandArgs[0]]) == 'undefined') { // have a param but it doesn't match a base
+        SendIt(9999, status_channel, "Base Name to start with (" + commandArgs[0] + ") must be an identical match");
+        return;
+      } else {  // we have a parameter and a match
+        startMsg = "Start requested at base " + commandArgs[0];
+      }
+    } 
     SendIt(9999, status_channel, startMsg);
     paused = 0;
-    startBot(getDesiredActiveConfig(1), commandArgs[0]);
+    startBot(getDesiredActiveConfig(), commandArgs[0]);
   } else 
   if (command === "stop") {
     SendIt(9999, status_channel, "Stop requested");
@@ -1690,7 +1693,8 @@ function getShieldExpireTimes() {
 function checkBaseActivities() {
   var done = true; // false says done can never be done
   updateStats();
-  if ( !paused && totalProcessed == 0 && elapsedTime > 30 ) { // running 30 minutes and not processing a base while not paused
+//  if ( !paused && totalProcessed == 0 && elapsedTime > 30 ) { // running 30 minutes and not processing a base while not paused
+  if ( !paused && countProcess(config.processName) == 0 && elapsedTime > 30 ) { // running 30 minutes and not processing a base while not paused
     SendIt(9999, status_channel, "Something is wrong with processing. Trying again.");
     if ( countProcess(config.processName) > 0 ) {
       SendIt(9999, status_channel, "Killing GNBot");
@@ -1966,13 +1970,11 @@ function compressFile(targetFile) {
 
 function getDesiredActiveConfig() {
   // if configured, make sure we use the right config. 
-  if ( typeof(config.gameDayMap) != 'undefined' && config.gameDayMap != null ) {
+  if ( typeof(config.gameDayMap) != 'undefined' && config.gameDayMap != null && config.gameDayMap.active > 0) {
     let gameDayOfWeek = gameDay();
     if ( config.activeProfile != config.gameDayMap[gameDayOfWeek].profile) {
       config.activeProfile = config.gameDayMap[gameDayOfWeek].profile;
     }
-  } else {
-    config.activeProfile = "default";
   }
   // If that config file doesn't exist revert to default
   if ( !fileExists(config.ConfigsDir + config.activeProfile + ".json") ) {
@@ -1984,7 +1986,7 @@ function getDesiredActiveConfig() {
 }
 
 function getMasterConfig(targetConfig = getDesiredActiveConfig(), force = false) {
-  var myMsg = force ? "Forced using " : "Bad config detected. Using ";
+  var myMsg = force ? "Forced using " : "Using ";
   myMsg += targetConfig + " as configuration";
   var fullSourceConfigPath = config.ConfigsDir + targetConfig + ".json";
   if ( !fileExists(fullSourceConfigPath) ) {
@@ -2193,7 +2195,7 @@ function checkDailyConfig() {
   }
   // first thing we do is check to see if we need to change configurations
   // We do this here because this happens frequently enough to know to switch
-  if ( typeof(config.gameDayMap) != 'undefined') {
+  if ( typeof(config.gameDayMap) != 'undefined' && config.gameDayMap.active > 0 ) {
     let gameDayOfWeek = gameDay();
     if ( config.activeProfile != getDesiredActiveConfig()) {
       SendIt(9999, status_channel, "Time for a new profile (" + config.gameDayMap[gameDayOfWeek].label + ") " + config.activeProfile );
