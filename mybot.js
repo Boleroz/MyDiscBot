@@ -19,8 +19,8 @@ var configFile = "./mybot.json";
 var cloudLogs = {}; // will hold the cloud module if defined
 
 if ( typeof(args[0]) != 'undefined' && fileExists(args[0]) ) {
-  console.log("Config file set to " + configFile);
   configFile = args[0];
+  console.log("Config file set to " + configFile);
 } else {
     // it isn't a config file, what are we being told?
     if (typeof(args[0]) != 'undefined' && args[0] === "config") {
