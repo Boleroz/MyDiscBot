@@ -45,6 +45,8 @@ if ( !fileExists(configFile) ) {
 var config = loadJSON(configFile);
 // always start offline so that messages get dumped to the console until / unless we connect
 config.offline = 1;
+// open the log stream as soon as we can
+var newLogStream = openNewLog(config.DuplicateLog);
 
 // Always start with a master config
 getMasterConfig(getDesiredActiveConfig(), true); // force a clean version at startup
@@ -74,6 +76,8 @@ var defaultConfig = {
   "GNBotDir": '{USERDIR}/Desktop/GNLauncher/',
   "GNBotLogMask": '{GNBotDir}/logs/log_{N}.txt',
   "GNBotLogMain": '{GNBotDir}/logs/log_main.txt',
+  "process_main": 0,
+  "saveMyLogs": 1,
   "DuplicateLog": '{USERDIR}/Desktop/MyDiscBot/Logs/LssSessions.log',
   "XXXXgatherCSV": '{USERDIR}/Desktop/MyDiscBot/gathers.csv',
   "BackupDir": '{USERDIR}/Desktop/MyDiscBot/Backup/',
@@ -100,7 +104,7 @@ var defaultConfig = {
   "StopLauncher": "-close",
   "processName": "GNLauncher.exe",
   "memuProcessName": "MEmuHeadless.exe",
-  "DupeLogMaxBytes": 10485760,
+  "DupeLogMaxBytes": 1048576000,
   "DupeLogMaxBytesTest": 1024,
   "MaxFailures": 4,
   "FailureMinutes": 1,
@@ -227,7 +231,6 @@ var status_channel = null;
 var last_status = "Initializing";
 var startTime = new Date();
 var oldest_date = new Date(); // nothing can have happened before now
-var newLogStream = openNewLog(config.DuplicateLog);
 
 // Used while running to keep track of each active session
 // if someone runs more than 11 sessions they should be able to figure out how to fix any errors ;)
@@ -416,11 +419,6 @@ function startup() {
     SendIt(9999, status_channel, "No bot process detected at startup. Starting.");
     startBot();
   }
-  for (l = 1; l <= LSSSettings.Threads; l++) {
-    sessions[l].tail.watch();
-    debugIt("Watching " + sessions[l].logfile, 1 );
-  }
-  SendIt(9999, status_channel, "Watching " + LSSSettings.Threads + " sessions");
   if (typeof(config.announceStatus) != 'undefined' && config.announceStatus) {
     var announcePeriod = Number(config.announceStatus);
     if (announcePeriod < 60 ) { announcePeriod = 60; }
@@ -453,6 +451,13 @@ function process_log(session, data) {
   if ( newLogStream.bytesWritten > config.DupeLogMaxBytes ) {
     newLogStream.end();
     newLogStream = openNewLog(config.DuplicateLog);
+  }
+
+  // skip main and system generated messages that are inserted into the pipeline unless desired
+  if ( config.process_main < 1 ) {  
+    if ( session == 0 || session == 9999 ) {
+      return;
+    }
   }
 
   var interesting_log = str.match(patterns.fundamentals.mustcontain);
@@ -1467,6 +1472,11 @@ function getStatusMessage(detailed = false) {
 function debugIt(msg, level) { 
   if (debug >= level) {
     console.log("DEBUG : " + msg);
+    newLogStream.write(msg + "\n", function(err){
+      if (err) {
+          console.log(err);
+      }
+    });
   };
 }
 
@@ -1577,6 +1587,13 @@ function SendIt(session, channel, msg) {
     } else {
       console.log("DISCORD OFFLINE : " + msg);
     }
+  }
+  if ( config.saveMyLogs > 0 ) {
+    newLogStream.write(msg + "\n", function(err){
+      if (err) {
+          console.log(err);
+      }
+    });
   }
 	return true;
 }
@@ -1898,9 +1915,9 @@ function countProcess(process_name, cb){
 }
 
 function getFilesizeInBytes(filename) {
-  var stats = fs.statSync(filename)
-  var fileSizeInBytes = stats["size"]
-  return fileSizeInBytes
+  var stats = fs.statSync(filename);
+  var fileSizeInBytes = stats["size"];
+  return fileSizeInBytes;
 }
 
 function renameFile(oldFile, newFile) {
@@ -1933,6 +1950,11 @@ function checkLogs() {
 }
 
 function watchLogs() {
+  for (l = 1; l <= LSSSettings.Threads; l++) {
+    sessions[l].tail.unwatch();
+    debugIt("UNWatching " + sessions[l].logfile, 1 );
+  }
+  SendIt(9999, status_channel, "Watching " + LSSSettings.Threads + " sessions");
   // watch the main log as session 0
   sessions[0].tail = new Tail(config.GNBotLogMain);
   sessions[0].tail.on('line', function(data) { process_log(0, data)});
@@ -1948,6 +1970,11 @@ function watchLogs() {
        console.log("error:", data);
      });
   }
+  for (l = 1; l <= LSSSettings.Threads; l++) {
+    sessions[l].tail.watch();
+    debugIt("Watching " + sessions[l].logfile, 1 );
+  }
+  SendIt(9999, status_channel, "Watching " + LSSSettings.Threads + " sessions");
 }
 
 function openNewLog(logPath) {
@@ -2037,8 +2064,9 @@ function setThreads(threads) {
   if (LSSSettings.Threads != threads || threads > activeCount - 1 ) { 
     debugIt(util.inspect(LSSSettings, true, 10, true), 4);
     if ( threads > activeCount - 1 ) {
-      SendIt(9999, status_channel, "Insufficient active instances for " + threads + " sessions adjusting to " + activeCount - 1 + "\n");
       threads = activeCount - 1;
+      if ( threads < 1 ) { threads = 1; }
+      SendIt(9999, status_channel, "Insufficient active instances adjusting sessions to " + threads + "\n");
     } else {
       SendIt(9999, status_channel, "Set sessions to " + threads);
     }
