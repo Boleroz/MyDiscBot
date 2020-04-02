@@ -639,6 +639,17 @@ function process_log(session, data) {
 	});
 };
 
+process.on('uncaughtException', function (err) {
+  SendIt(9999, status_channel, "FYI: Whoah an uncaughtExecption error. If you don't see me again things went terribly wrong.");
+  console.log(err);
+})
+
+client.on("error", (error) => {
+  // get discord errors and print them before continuing
+  SendIt(9999, status_channel, "FYI: Caught a discord error. If you don't see me again things went horribly wrong.");
+  console.log(error);
+});
+
 client.on("ready", () => {
   debugIt("I am ready!", 1);
   config.offline = 0;
