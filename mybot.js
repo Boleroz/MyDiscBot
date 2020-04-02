@@ -235,18 +235,18 @@ var oldest_date = new Date(); // nothing can have happened before now
 // Used while running to keep track of each active session
 // if someone runs more than 11 sessions they should be able to figure out how to fix any errors ;)
 var sessions = {
-  0: {"name": "System Events", "id": 0, "time": "[00:00]", "state": "Monitoring", "lastlog": "Monitoring System Events", "closed": 0, "processed": 0, logfile:"", tail: {}},
-  1: {"name": "init1", "id": 9999, "time": "timestr", "state": "initializing", "lastlog": "initializing", "closed": 0, "processed": 0, logfile:"", tail: {}},
-  2: {"name": "init2", "id": 9999, "time": "timestr", "state": "initializing", "lastlog": "initializing", "closed": 0, "processed": 0, logfile:"", tail: {}},
-  3: {"name": "init3", "id": 9999, "time": "timestr", "state": "initializing", "lastlog": "initializing", "closed": 0, "processed": 0, logfile:"", tail: {}},
-  4: {"name": "init4", "id": 9999, "time": "timestr", "state": "initializing", "lastlog": "initializing", "closed": 0, "processed": 0, logfile:"", tail: {}},
-  5: {"name": "init5", "id": 9999, "time": "timestr", "state": "initializing", "lastlog": "initializing", "closed": 0, "processed": 0, logfile:"", tail: {}},
-  6: {"name": "init6", "id": 9999, "time": "timestr", "state": "initializing", "lastlog": "initializing", "closed": 0, "processed": 0, logfile:"", tail: {}},
-  7: {"name": "init7", "id": 9999, "time": "timestr", "state": "initializing", "lastlog": "initializing", "closed": 0, "processed": 0, logfile:"", tail: {}},
-  8: {"name": "init8", "id": 9999, "time": "timestr", "state": "initializing", "lastlog": "initializing", "closed": 0, "processed": 0, logfile:"", tail: {}},
-  9: {"name": "init9", "id": 9999, "time": "timestr", "state": "initializing", "lastlog": "initializing", "closed": 0, "processed": 0, logfile:"", tail: {}},
-  10: {"name": "init10", "id": 9999, "time": "timestr", "state": "initializing", "lastlog": "initializing", "closed": 0, "processed": 0, logfile:"", tail: {}},
-  11: {"name": "init11", "id": 9999, "time": "timestr", "state": "initializing", "lastlog": "initializing", "closed": 0, "processed": 0, logfile:"", tail: {}}
+  0: {"name": "System Events", "id": 0, "time": "[00:00]", "state": "Monitoring", "lastlog": "Monitoring System Events", "closed": 0, "processed": 0, logfile:"", tail: undefined},
+  1: {"name": "init1", "id": 9999, "time": "timestr", "state": "initializing", "lastlog": "initializing", "closed": 0, "processed": 0, logfile:"", tail: undefined},
+  2: {"name": "init2", "id": 9999, "time": "timestr", "state": "initializing", "lastlog": "initializing", "closed": 0, "processed": 0, logfile:"", tail: undefined},
+  3: {"name": "init3", "id": 9999, "time": "timestr", "state": "initializing", "lastlog": "initializing", "closed": 0, "processed": 0, logfile:"", tail: undefined},
+  4: {"name": "init4", "id": 9999, "time": "timestr", "state": "initializing", "lastlog": "initializing", "closed": 0, "processed": 0, logfile:"", tail: undefined},
+  5: {"name": "init5", "id": 9999, "time": "timestr", "state": "initializing", "lastlog": "initializing", "closed": 0, "processed": 0, logfile:"", tail: undefined},
+  6: {"name": "init6", "id": 9999, "time": "timestr", "state": "initializing", "lastlog": "initializing", "closed": 0, "processed": 0, logfile:"", tail: undefined},
+  7: {"name": "init7", "id": 9999, "time": "timestr", "state": "initializing", "lastlog": "initializing", "closed": 0, "processed": 0, logfile:"", tail: undefined},
+  8: {"name": "init8", "id": 9999, "time": "timestr", "state": "initializing", "lastlog": "initializing", "closed": 0, "processed": 0, logfile:"", tail: undefined},
+  9: {"name": "init9", "id": 9999, "time": "timestr", "state": "initializing", "lastlog": "initializing", "closed": 0, "processed": 0, logfile:"", tail: undefined},
+  10: {"name": "init10", "id": 9999, "time": "timestr", "state": "initializing", "lastlog": "initializing", "closed": 0, "processed": 0, logfile:"", tail: undefined},
+  11: {"name": "init11", "id": 9999, "time": "timestr", "state": "initializing", "lastlog": "initializing", "closed": 0, "processed": 0, logfile:"", tail: undefined}
 };
 
 // prototype of a base entry
@@ -1951,8 +1951,6 @@ function checkLogs() {
 
 function watchLogs() {
   for (l = 1; l <= LSSSettings.Threads; l++) {
-    sessions[l].tail.unwatch();
-    debugIt("UNWatching " + sessions[l].logfile, 1 );
   }
   SendIt(9999, status_channel, "Watching " + LSSSettings.Threads + " sessions");
   // watch the main log as session 0
@@ -1961,14 +1959,20 @@ function watchLogs() {
   sessions[0].tail.on('error', function(data) {
     console.log("error:", data);
   });
+  // watching more than we need doesn't matter, watching less does.
   for (t = 1; t <= LSSSettings.Threads; t++) {
-    let x = t; // don't ref it6
-    debugIt("watch set up for " + sessions[x].logfile, 1);
-     sessions[x].tail = new Tail(sessions[x].logfile);
-     sessions[x].tail.on('line', function(data) { process_log(x, data)});
-     sessions[x].tail.on('error', function(data) {
-       console.log("error:", data);
-     });
+    let x = t; // don't ref it
+    if ( sessions[x].tail == undefined ) {
+      sessions[x].tail = new Tail(sessions[x].logfile);
+      sessions[x].tail.on('line', function(data) { process_log(x, data)});
+      sessions[x].tail.on('error', function(data) {
+        console.log("error:", data);
+      });
+      debugIt("watch set up for " + sessions[x].logfile, 1);
+    } else {
+      sessions[x].tail.unwatch();
+      debugIt("UNWatched " + sessions[x].logfile, 1 );
+    }
   }
   for (l = 1; l <= LSSSettings.Threads; l++) {
     sessions[l].tail.watch();
