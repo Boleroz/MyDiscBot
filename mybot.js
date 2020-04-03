@@ -13,7 +13,9 @@ const spawn = require('child_process').spawn;
 const zlib = require('zlib');
 const readline = require('readline');
 const {google} = require('googleapis');
-const https = require('https'); // used to submit logs to the cloud endpoint if configured
+const https = require('https'); 
+const http = require('http');  
+const crypto = require('crypto');
 
 var configFile = "./mybot.json";
 var cloudLogs = {}; // will hold the cloud module if defined
@@ -78,6 +80,11 @@ var defaultConfig = {
   "GNBotLogMain": '{GNBotDir}/logs/log_main.txt',
   "process_main": 0,
   "saveMyLogs": 1,
+  "checkforAPK": 0,
+  "apkStart": "https://www.gnbots.com/apk",
+  "apkPath": "Last%20Shelter%20Survival/game.apk",
+  "apkDest": "./downloaded.apk",
+  "apkStatsFile": "./apkstats.json",
   "DuplicateLog": '{USERDIR}/Desktop/MyDiscBot/Logs/LssSessions.log',
   "XXXXgatherCSV": '{USERDIR}/Desktop/MyDiscBot/gathers.csv',
   "BackupDir": '{USERDIR}/Desktop/MyDiscBot/Backup/',
@@ -197,6 +204,13 @@ var patterns = loadPatterns();
 var reporting = loadReporting();
 var messages = loadMessages();
 var LSSSettings = loadJSON("GNBotSettings", config);
+var defaultAPKStats = {
+  "size": "0",
+  "datestr": "Wed, 01 Apr 2020 00:00:00 GMT"
+};
+var oldAPK = config.apkDest.replace(".apk",".last.apk");
+var apkURL = "";
+var apkStats = Object.assign(defaultAPKStats, loadJSON(config.apkStatsFile));
 
 if (reconfigure && !fileExists(config.gatherCSV)) {
   SendIt(9999, status_channel, "Cannot locate gather file (gatherCSV) " + config.gatherCSV + " disabling");
@@ -350,6 +364,12 @@ setInterval(moveBotWindow, 5 * 60 * 1000); // every 5 minutes
 
 // check the daily configuration settinng
 setInterval(checkDailyConfig, 5 * 60 * 1000); // within 5 minutes of reset
+
+// check for a new APK every hour
+if ( config.checkforAPK ) {
+  SendIt(9999, status_channel, "Checking for an new APK every hour");
+  setInterval(checkAPK, 60* 60 * 1000);
+}
 
 if ( config.manageActiveBasesTime > 0 ) {
   if ( !fileExists(config.PausedMaster)) {
@@ -2423,6 +2443,135 @@ function saveCSV(auth) {
       console.log('csv data saved to', config.gatherCSV);
     });
   });
+}
+
+function checkAPK() {
+  getRealAPKurl(config.apkStart).then(function(path) {
+    apkURL = path + config.apkPath;
+    isNewAPKAvailable(apkURL, apkStats).then( function(newStats) {
+      var isNewFile = false;
+      debugIt("A new APK is available \n" + util.inspect(newStats), 1);
+      copyFile(config.apkDest, oldAPK, true);
+      saveFilefromURL(apkURL, config.apkDest, function(e) {
+        if ( e ) { 
+          debugIt(e, 1); 
+        } else {  
+          isNewFile = getSHA256FileHash(oldAPK) != getSHA256FileHash(config.apkDest);
+        }
+        if ( isNewFile ) {
+          SendIt(9999, status_channel, "@everyone - stopping bot. A new APK is available at " + config.apkDest);
+          stopBot();
+        }
+      }), function(e) { // saveFile
+        console.log(e);
+      };
+    }, function(e) { // isNewAPK
+      console.log(e);
+    });
+  }, function(e) { // getrealurl
+    console.log(e)
+  });
+}
+
+function getRealAPKurl(root) { 
+  var http_or_https = http;
+  if (/^https:\/\/(\w+:{0,1}\w*@)?(\S+)(:[0-9]+)?(\/|\/([\w#!:.?+=&%@!\-\/]))?$/.test(root)) {
+      http_or_https = https;
+  } 
+  return new Promise( function(resolve, reject) {
+    http_or_https.get(root, function(response) {
+    var headers = JSON.stringify(response.headers);
+    switch(response.statusCode) {
+      case 200: 
+        resolve(root);
+      case 301:
+      case 302:
+      case 303:
+      case 307:
+        if ( response.headers.location.includes("404")) {
+          reject(new Error('Server responded with status code ' + response.statusCode + " to a 404 page\n" + headers));
+        } else {
+          resolve(response.headers.location);
+        }
+        break;
+      default:
+        reject(new Error('Server responded with status code ' + response.statusCode + "\n" + headers));
+      }
+    })
+    .on('error', function(err) {
+      reject("Server doesn't report any changes for " + apkURL);
+      cb(err);
+    });
+  });// Promise
+}
+
+function isNewAPKAvailable(url, oldStats) { 
+  var http_or_https = http;
+  if (/^https:\/\/(\w+:{0,1}\w*@)?(\S+)(:[0-9]+)?(\/|\/([\w#!:.?+=&%@!\-\/]))?$/.test(url)) {
+      http_or_https = https;
+  }
+  var myURL = new URL(url);
+  var options = {method: 'HEAD', host: myURL.host, port: myURL.port, path: myURL.pathname};
+  return new Promise( function(resolve, reject) {
+    var req = http_or_https.request(options, function(res) {
+      var serverSize = res.headers["content-length"];
+      var serverDateStr = res.headers["last-modified"];
+      var isNewFileBySize = serverSize != oldStats.size;
+      var isNewFileByDate = serverDateStr != oldStats.datestr;
+      if ( isNewFileByDate || isNewFileBySize ) {
+        oldStats.size = serverSize;
+        oldStats.datestr = serverDateStr;
+        storeJSON(oldStats, config.apkStatsFile)
+        resolve(oldStats);
+      } else {
+        reject("Server doesn't report any changes for " + url);
+      }
+    }); // http.request
+    req.end();
+  });// Promise
+}
+
+function saveFilefromURL(url, path, cb) {
+    var http_or_https = http;
+    if (/^https:\/\/(\w+:{0,1}\w*@)?(\S+)(:[0-9]+)?(\/|\/([\w#!:.?+=&%@!\-\/]))?$/.test(url)) {
+        http_or_https = https;
+    }
+    http_or_https.get(url, function(response) {
+        var headers = JSON.stringify(response.headers);
+        switch(response.statusCode) {
+            case 200:
+                var file = fs.createWriteStream(path);
+                response.on('data', function(chunk){
+                    file.write(chunk);
+                    process.stdout.write("Downloaded " + file.bytesWritten + " bytes so far\r");
+                }).on('end', function(){
+                    file.end();
+                    cb(null);
+                });
+                break;
+            case 301:
+            case 302:
+            case 303:
+            case 307:
+                saveFilefromURL(response.headers.location, path, cb);
+                break;
+            default:
+                cb(new Error('Server responded with status code ' + response.statusCode + "\n" + headers));
+        }
+    })
+    .on('error', function(err) {
+        cb(err);
+    });
+}
+
+function getSHA256FileHash(filename) {
+    if ( fileExists(filename)) {
+      const sha256 = crypto.createHash('sha256');
+      sha256.update(fs.readFileSync(filename));   
+      return sha256.digest('hex');
+    } else {
+      return 0;
+    }
 }
 
 function makeConfigFile(configPath = configFile) {
