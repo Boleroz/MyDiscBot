@@ -223,7 +223,6 @@ var defaultAPKStats = {
 var oldAPK = config.apkDest.replace(".apk",".last.apk");
 var apkURL = "";
 var apkStats = Object.assign(defaultAPKStats, loadJSON(config.apkStatsFile));
-var cumulativeerrors = {};
 
 if (reconfigure && !fileExists(config.gatherCSV)) {
   SendIt(9999, status_channel, "Cannot locate gather file (gatherCSV) " + config.gatherCSV + " disabling");
@@ -566,7 +565,7 @@ function process_log(session, data) {
 								} else {
 									message = message.replace('{last_run}', timeDiffHoursMinutes(bases[baseIndex].time, bases[baseIndex].last_time) + ' ago');
                 }
-                cumulativeerrors[session] = 0; // reset for each session, if a session gets hung we will ultimately restart gnbot
+                sessions[session].cumulativeerrors = 0; // reset for each session, if a session gets hung we will ultimately restart gnbot
 								break;
 						}
             // save off the session state on account changes
@@ -580,10 +579,10 @@ function process_log(session, data) {
           }
           if ( module == 'errors' && config.watcherrors.includes(action) ) {
             // These are the errors we determined should be counted, when we hit the threshold we should restart gnbot
-            cumulativeerrors[session]++;
-            if ( config.watcherrorthreshold > 0 && cumulativeerrors > config.watcherrorthreshold ) {
+            sessions[session].cumulativeerrors++;
+            if ( config.watcherrorthreshold > 0 && sessions[session].cumulativeerrors > config.watcherrorthreshold ) {
               SendIt("Too many cumulative watched errors. restarting GNBot");
-              cumulativeerrors = 0;
+              sessions[session].cumulativeerrors = 0;
               restartBot();
             }
           }
