@@ -1742,7 +1742,7 @@ function checkBaseActivities() {
   var done = true; // false says done can never be done
   updateStats();
 //  if ( !paused && totalProcessed == 0 && elapsedTime > 30 ) { // running 30 minutes and not processing a base while not paused
-  if ( !paused && countProcess(config.processName) == 0 && elapsedTime > 30 ) { // running 30 minutes and not processing a base while not paused
+  if ( !paused && countProcess(config.memuProcessName) == 0 && elapsedTime > 30 ) { // running 30 minutes and not processing a base while not paused
     SendIt(9999, status_channel, "Something is wrong with processing. Trying again.");
     if ( countProcess(config.processName) > 0 ) {
       SendIt(9999, status_channel, "Killing GNBot");
