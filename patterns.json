@@ -27,6 +27,7 @@
 			"noinclude": "Can't\\sfind\\sinclude\\s(.*)",
 			"unexpected": "Unexepected\\serror\\sduring\\sscript\\sexecution.\\s(.*)",
 			"invalidparam": "Parameter\\sis\\snot\\svalid.",
+			"waitingforqueue": "Waiting\\sfor\\sSession\\s(.*)\\sin\\sQueue",
 			"isnull": "\\s(.*)\\sis\\snull"
 		},
 		"donation": {

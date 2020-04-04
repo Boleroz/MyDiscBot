@@ -32,6 +32,7 @@
     "noinclude": "ON",
     "unexpected": "OFF",
     "invalidparam": "ON",
+    "waitingforqueue": "ON",
     "isnull": "ON"
   }, 
   "dailies" : {

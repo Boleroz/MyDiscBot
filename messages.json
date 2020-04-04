@@ -17,6 +17,7 @@
 		"noinclude": "```diff\n- CRITICAL: Can't find include {s1}. Reboot may be necessary.```",
 		"unexpected": "```diff\n- ERROR: Unexepected error during script execution. {s1}. Please observe run for abnormalities.```",
 		"invalidparam": "```diff\n- WARNING: Invalid parameter detected. Please observe for abnormalities.```",
+		"waitingforqueue": "```diff\n- WARNING: Waiting for session in queue. Repeated messages indicated hung GNBot - GNBot restart may be required.```",
 		"isnull": "```diff\n- WARNING: {s1} is null. If this is _base etc it ia fatal and nothing is working properly. Reboot probably required.```"
 	},
 	"runtime": {
