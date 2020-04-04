@@ -121,6 +121,18 @@ var defaultConfig = {
   "patternfile": "./patterns.json",
   "reporting": "./reporting.json",
   "messages": "./messages.json",
+  "watcherrors": [
+    "authfailure",
+    "starttimeout",
+    "noexist",
+    "notdefined",
+    "failedwindow",
+    "noinclude",
+    "unexpected",
+    "invalidparam",
+    "waitingforqueue"
+  ],
+  "watcherrorthreshold": 0,
   "useGoogle": 0,
   "googleSecretsFile": "./credentials.json",
   "googleTokenFile": "./token.json",
@@ -211,6 +223,7 @@ var defaultAPKStats = {
 var oldAPK = config.apkDest.replace(".apk",".last.apk");
 var apkURL = "";
 var apkStats = Object.assign(defaultAPKStats, loadJSON(config.apkStatsFile));
+var cumulativeerrors = 0;
 
 if (reconfigure && !fileExists(config.gatherCSV)) {
   SendIt(9999, status_channel, "Cannot locate gather file (gatherCSV) " + config.gatherCSV + " disabling");
@@ -563,6 +576,15 @@ function process_log(session, data) {
           if ( module == 'runtime' && action == 'skipaction') {
 // the way logs work this will always be behind, still deciding if a video helps
 //            takeWindowScreenshot(sessions[session].name, true);
+          }
+          if ( module == 'errors' && config.watcherrors.includes(action) ) {
+            // These are the errors we determined should be counted, when we hit the threshold we should restart gnbot
+            cumulativeerrors++;
+            if ( config.watcherrorthreshold > 0 && cumulativeerrors > config.watcherrorthreshold ) {
+              SendIt("Too many cumulative watched errors. restarting GNBot");
+              cumulativeerrors = 0;
+              restartBot();
+            }
           }
 					if (module == 'runtime' && action == 'finishedbase') {
 						sessions[session].state = "Closed";
