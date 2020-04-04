@@ -223,7 +223,7 @@ var defaultAPKStats = {
 var oldAPK = config.apkDest.replace(".apk",".last.apk");
 var apkURL = "";
 var apkStats = Object.assign(defaultAPKStats, loadJSON(config.apkStatsFile));
-var cumulativeerrors = 0;
+var cumulativeerrors = {};
 
 if (reconfigure && !fileExists(config.gatherCSV)) {
   SendIt(9999, status_channel, "Cannot locate gather file (gatherCSV) " + config.gatherCSV + " disabling");
@@ -565,7 +565,8 @@ function process_log(session, data) {
 									message = message.replace('{last_run}', 'unknown');
 								} else {
 									message = message.replace('{last_run}', timeDiffHoursMinutes(bases[baseIndex].time, bases[baseIndex].last_time) + ' ago');
-								}
+                }
+                cumulativeerrors[session] = 0; // reset for each session, if a session gets hung we will ultimately restart gnbot
 								break;
 						}
             // save off the session state on account changes
@@ -579,7 +580,7 @@ function process_log(session, data) {
           }
           if ( module == 'errors' && config.watcherrors.includes(action) ) {
             // These are the errors we determined should be counted, when we hit the threshold we should restart gnbot
-            cumulativeerrors++;
+            cumulativeerrors[session]++;
             if ( config.watcherrorthreshold > 0 && cumulativeerrors > config.watcherrorthreshold ) {
               SendIt("Too many cumulative watched errors. restarting GNBot");
               cumulativeerrors = 0;
@@ -1025,6 +1026,7 @@ if(typeof(config.ownerID) != 'undefined' && ( message.author.id !== config.owner
     SendIt(9999, status_channel, "Bot enabled! Starting.");
     paused = 0;
     config.disabled = 0;
+    storeJSON(config, configFile);
     startBot();
   } else 
   if (command === "resume") {
@@ -2481,8 +2483,11 @@ function checkAPK() {
           isNewFile = getSHA256FileHash(oldAPK) != getSHA256FileHash(config.apkDest);
         }
         if ( isNewFile ) {
-          SendIt(9999, status_channel, "@everyone - stopping bot. A new APK is available at " + config.apkDest);
+          SendIt(9999, status_channel, "@everyone - disabling bot. A new APK is available at " + config.apkDest);
+          SendIt(9999, status_channel, "It is strongly encouraged the new APK be installed before using !enable. Failure to do so may result in having to complete the tutorials again.");
           stopBot();
+          config.disabled = 1;
+          storeJSON(config, configFile);
         }
       }), function(e) { // saveFile
         console.log(e);
