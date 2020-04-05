@@ -1787,7 +1787,7 @@ function checkBaseActivities() {
   if ( done ) { 
     SendIt(9999, status_channel, "All active bases processed. Looking for things to do")
     paused = 1;
-    stopBotWait();
+    stopBot();
     var moreBases = getSkipExpireList(1);
     if ( moreBases.length > 0 ) {
       // we have something to do
