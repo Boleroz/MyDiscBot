@@ -96,6 +96,7 @@ var defaultConfig = {
   "Announce": 1,
   "debug": 0,
   "disabled": 0,
+  "killstop": 0,
   "processWatchTimer": 5,
   "processLaunchDelay": 30,
   "offline": 1,
@@ -110,7 +111,7 @@ var defaultConfig = {
   "StartLauncher": "-start",
   "StopLauncher": "-close",
   "processName": "GNLauncher.exe",
-  "memuProcessName": "MEmuHeadless.exe",
+  "memuProcessName": "MEmu*",
   "DupeLogMaxBytes": 1048576000,
   "DupeLogMaxBytesTest": 1024,
   "MaxFailures": 4,
@@ -824,6 +825,8 @@ if (command === "help") {
 
 !killbot: forcefully terminates the GNBot process. Needed when the bot process hangs in the background. 
 
+!killmemu: forcefully terminates ANY MEmu process. 
+
 !download:csv: download a fresh CSV from the google sheet
 
 !install:csv: use the csv and update gather locations.
@@ -969,8 +972,8 @@ if(typeof(config.ownerID) != 'undefined' && ( message.author.id !== config.owner
     if ( Number.isNaN(paused) ) {
       paused = 120;
     } 
-    stopBotWait();
     reboot(paused);
+    stopBot(); // don't let a stop interrupt a reboot
   } else
   if (command === "abort") {
     SendIt(9999, status_channel, "Aborting reboot request.");
@@ -1004,6 +1007,10 @@ if(typeof(config.ownerID) != 'undefined' && ( message.author.id !== config.owner
     SendIt(9999, status_channel, "Kill of " + config.processName + " requested");
 //    paused = 1;  // don't want to pause it by default on a kill
     killProcess(config.processName);
+  } else 
+  if (command === "killmemu") {
+    SendIt(9999, status_channel, "Kill of " + config.memuProcessName + " requested");
+    killProcess(config.memuProcessName);
   } else 
   if (command === "pause") {
     SendIt(9999, status_channel, "Pause requested");
@@ -1920,7 +1927,7 @@ function killProcess(process_name, cb){
   debugIt("looking for " + process_name, 2);
   if ( execFileSync('c:/windows/system32/tasklist.exe').indexOf(process_name) > 0 ) {
     debugIt("Found processes. Killing them.");
-    SendIt(9999, status_channel, execFileSync('c:/windows/system32/taskkill.exe', ["/F", "/IM", process_name]));
+    SendIt(9999, status_channel, execFileSync('c:/windows/system32/taskkill.exe', ["/F", "/T", "/IM", process_name])); // force, children, matching name
   };
 }
 
@@ -2005,7 +2012,7 @@ function watchLogs() {
   // watching more than we need doesn't matter, watching less does.
   for (t = 1; t <= LSSSettings.Threads; t++) {
     let x = t; // don't ref it
-    if ( sessions[x].tail == undefined ) {
+    if ( typeof(sessions[x].tail) == 'undefined' ) {
       sessions[x].tail = new Tail(sessions[x].logfile);
       sessions[x].tail.on('line', function(data) { process_log(x, data)});
       sessions[x].tail.on('error', function(data) {
@@ -2015,6 +2022,8 @@ function watchLogs() {
     } else {
       sessions[x].tail.unwatch();
       debugIt("UNWatched " + sessions[x].logfile, 1 );
+      sessions[x].tail = new Tail(sessions[x].logfile);
+      debugIt("new watch set up for " + sessions[x].logfile, 1);
     }
   }
   for (l = 1; l <= LSSSettings.Threads; l++) {
@@ -2229,21 +2238,29 @@ function execBot(time = 5) {
 
 function stopBot() {
   if ( config.disabled ) { return; }
-  var myCwd = process.cwd();
-  process.chdir(config.GNBotDir);
-  const child = execFile(config.GNBotDir + config.Launcher, [config.StopLauncher], (error, stdout, stderr) => {
-    if (error) {
-      throw(error);
+  if ( config.killstop > 0 ) {
+    killProcess(config.processName);
+    if ( checkProcess(config.memuProcessName) ) {
+      killProcess(config.memuProcessName);
     }
-  });
-  process.chdir(myCwd);
+    return;
+  } else { // added above for GNBots that won't close
+    var myCwd = process.cwd();
+    process.chdir(config.GNBotDir);
+    const child = execFile(config.GNBotDir + config.Launcher, [config.StopLauncher], (error, stdout, stderr) => {
+      if (error) {
+        throw(error);
+      }
+    });
+    process.chdir(myCwd);
+  }
 }
 
 function stopBotWait() {
   if ( config.disabled ) { return; }
   var myCwd = process.cwd();
   process.chdir(config.GNBotDir);
-  execFileSync(config.GNBotDir + config.Launcher, [config.StopLauncher], {"timeout":5000});
+  execFileSync(config.GNBotDir + config.Launcher, [config.StopLauncher], {"timeout":15000}); // 15 sec should be ample time
   process.chdir(myCwd);
 }
 
@@ -2264,15 +2281,15 @@ function reboot(seconds = 120) {
   }
   paused = 1;
   SendIt(9999, status_channel, "A REBOOT HAS BEEN REQUESTED.");
-  if ( checkProcess(config.processName) ) {
-    stopBot();
-  }
   const child = execFile('C:/Windows/System32/shutdown.exe', ['/r', '/f', '/t', seconds], (error, stdout, stderr) => {
     if (error) {
       throw(error);
     }
   });
   SendIt(9999, status_channel, "```diff\n + REBOOTING IN " + seconds + " SECONDS! Issue !abort to stop the reboot.```");
+  if ( checkProcess(config.processName) ) { // mode to end so that if bot doesn't stop it doesn't interrupt reboot
+    stopBot(); // don't use a stopwait
+  }
 }
 
 function checkDailyConfig() {
