@@ -390,7 +390,7 @@ if ( config.manageActiveBasesTime > 0 ) {
     config.manageActiveBasesTime = 0;
   } else {
     // we are actively managing the status of bases. 
-    // check for new things to do ot if we should stop every 10 minutes
+    // check for new things to do or if we should stop every 10 minutes
     setInterval(checkBaseActivities, 10 * 60 * 1000);
   }
 }
@@ -1801,7 +1801,7 @@ function checkBaseActivities() {
       // startBot will get it done. 
       SendIt(9999, status_channel, "There are more bases to process. Starting.")
       paused = 0;
-      setTimeout(startBot, 30*1000);
+      setTimeout(startBot, 5*1000);
     } else {
       SendIt(9999, status_channel, "Nothing to do right now. Idling");  // the default 10 minute check cycle will handle starting again
     }
@@ -2344,8 +2344,10 @@ function watchProcess () {
       processFailures += 1;
       takeScreenshot(config.postStatusScreenshots);
       process_log(9999, "[00:00 AM] CRITICAL: BOT NOT RUNNING!!!!!!! Attempting to start.");
-      SendIt(9999, status_channel, "@" + config.ownerHandle + " - ATTENTION");
-      SendIt(9999, status_channel, "```diff\n- CRITICAL: BOT NOT RUNNING!!!!!!! Attempting to start.```");
+      if ( processFailures > 2 ) { // someone using killbot will get a lot of @ mentions. only @ someone when it is consistent failure. 
+        SendIt(9999, status_channel, "@" + config.ownerHandle + " - ATTENTION");
+        SendIt(9999, status_channel, "```diff\n- CRITICAL: BOT NOT RUNNING!!!!!!! Attempting to start.```");
+      }
       startBot();
     } else {
       if ((processFailures % 10) == 0) {
