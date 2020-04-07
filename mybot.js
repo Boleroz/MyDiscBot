@@ -2023,6 +2023,10 @@ function watchLogs() {
       sessions[x].tail.unwatch();
       debugIt("UNWatched " + sessions[x].logfile, 1 );
       sessions[x].tail = new Tail(sessions[x].logfile);
+      sessions[x].tail.on('line', function(data) { process_log(x, data)});
+      sessions[x].tail.on('error', function(data) {
+        console.log("error:", data);
+      });
       debugIt("new watch set up for " + sessions[x].logfile, 1);
     }
   }
