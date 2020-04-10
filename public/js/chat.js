@@ -189,6 +189,17 @@ var connect = function() {
             }
         } else if((data.type == 'kick' || data.type == 'ban') && data.extra == username) {
             location.reload();
+        } else if((data.type == 'bot' )) {
+            data.client.id = 1;
+            data.user = "MyBot";
+            data.user.oldun = "Bot";
+            data.user.un = "MyBot";
+            data.user.ip = "127.0.0.1";
+            data.user.role = 0;
+            data.type = '';
+            data.keep = true;
+            user = 'MyBot';
+            showChat(data.type, data.user, data.message, data.subtxt, data.mid);
         } else {
             if(data.message.indexOf('@' + username) > -1) {
                 data.type = 'mention';

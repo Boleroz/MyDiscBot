@@ -464,9 +464,13 @@ console.log("We are off to the races.");
 // START CHAT CODE
 var chatConfig = {"active": 0};
 if ( fileExists('./chatconfig.json')) {
+  SendIt(9999, status_channel, "local chat server config found.")
   chatConfig = loadJSON('./chatconfig.json');
-  SendIt(9999, status_channel, "local chat server enabled.")
+  if ( chatConfig.active > 0 ) { 
+    SendIt(9999, status_channel, "Local chat server enabled");
+  }
 } else {
+  chatConfig.active = 0; // just so search finds it
   SendIt(9999, status_channel, "local chat server not configured.")
 }
 
@@ -487,6 +491,7 @@ if ( chatConfig.active > 0 ) { // hack in a chat server
 
   /* Config */
   var port = chatUtils.normalizePort(process.env.PORT || chatConfig.port);
+  var host = chatConfig.host || "127.0.0.1";
   var app = express();
   var server;
 
@@ -506,6 +511,7 @@ if ( chatConfig.active > 0 ) { // hack in a chat server
 
   /* Express */
   app.set('port', port);
+  app.set('host', host);
   app.set('views', path.join(__dirname, 'views'));
   app.set('view engine', 'ejs');
   app.use(favicon(path.join(__dirname,'public/img/favicon.png')));
@@ -789,7 +795,7 @@ if ( chatConfig.active > 0 ) { // hack in a chat server
       server = https.createServer(opt, app);
   }
 
-  server.listen(port);
+  server.listen(port, host);
   server.on('error', onError);
   server.on('listening', onListening);
 
@@ -823,7 +829,7 @@ if ( chatConfig.active > 0 ) { // hack in a chat server
   }
 
   chat.installHandlers(server, {prefix:'/socket', log:function(){}});
-} // config.localshat.active
+} // config.localchat.active
 // END MAIN CODE
 
 function process_log(session, data) {
@@ -2004,7 +2010,7 @@ function SendFileAttachment(session, channel, msg, file) {
 	return true;
 }
 
-function SendIt(session, channel, msg) {
+function SendIt(session, channel = undefined, msg = "") {
 	if (config.offline) {
     console.log("OFFLINE : " + msg);
   } else {
@@ -2019,7 +2025,7 @@ function SendIt(session, channel, msg) {
     if ( chatConfig.active > 0 ) {
       var maxMsgSize = msg.length >= 795 ? 795 : msg.length;
       var htmlMsg = msg.replace(new RegExp("\n", "g"), "<br>");
-      var localMsg = {"message": "", "client": {"id": 1, "oldun": null, "role": 0, "un": "Bot"} };
+      var localMsg = {"message": "", "type": "bot", "role": 0, "client": {"id": 1, "oldun": null, "role": 0, "un": "MyBot"} };
       var bufSent = 0;
       while (bufSent < msg.length) {
         maxMsgSize = (msg.length - bufSent) >= 795 ? 795 : msg.length - bufSent;
@@ -2324,10 +2330,12 @@ function getMachineUUID() {
 
 function killProcess(process_name, cb){
   if ( config.disabled ) { return; }
+  var killResult = "";
   debugIt("looking for " + process_name, 2);
   if ( execFileSync('c:/windows/system32/tasklist.exe').indexOf(process_name) > 0 ) {
     debugIt("Found processes. Killing them.");
-    SendIt(9999, status_channel, execFileSync('c:/windows/system32/taskkill.exe', ["/F", "/T", "/IM", process_name])); // force, children, matching name
+    killResult = execFileSync('c:/windows/system32/taskkill.exe', ["/F", "/T", "/IM", process_name]); // force, children, matching name
+    SendIt(9999, status_channel, killResult); 
   };
 }
 
