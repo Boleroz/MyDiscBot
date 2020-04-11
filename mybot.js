@@ -1903,7 +1903,7 @@ function getStatusMessage(detailed = false) {
   return msg;
 }
 
-function debugIt(msg, level) { 
+function debugIt(msg = "", level = 1) { 
   if (debug >= level) {
     console.log("DEBUG : " + msg);
     newLogStream.write(msg + "\n", function(err){
@@ -2010,7 +2010,7 @@ function SendFileAttachment(session, channel, msg, file) {
 	return true;
 }
 
-function SendIt(session, channel = undefined, msg = "") {
+function SendIt(session, channel = undefined, msg = "no message provided") {
 	if (config.offline) {
     console.log("OFFLINE : " + msg);
   } else {
@@ -2333,7 +2333,7 @@ function killProcess(process_name, cb){
   var killResult = "";
   debugIt("looking for " + process_name, 2);
   if ( execFileSync('c:/windows/system32/tasklist.exe').indexOf(process_name) > 0 ) {
-    debugIt("Found processes. Killing them.");
+    debugIt("Found processes. Killing them.", 2);
     killResult = execFileSync('c:/windows/system32/taskkill.exe', ["/F", "/T", "/IM", process_name]); // force, children, matching name
     SendIt(9999, status_channel, killResult); 
   };
