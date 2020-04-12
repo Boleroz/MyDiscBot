@@ -2023,20 +2023,30 @@ function SendIt(session, channel = undefined, msg = "no message provided") {
     }
     // for hacking in a local chat server
     if ( chatConfig.active > 0 ) {
+      console.log("LOCAL CHAT ACTIVE");
       var maxMsgSize = msg.length >= 795 ? 795 : msg.length;
+      console.log("Max Message Size : " + maxMsgSize);
       var htmlMsg = msg.replace(new RegExp("\n", "g"), "<br>");
+      console.log("HTML Msg : " + htmlMsg);
       var localMsg = {"message": "", "type": "bot", "role": 0, "client": {"id": 1, "oldun": null, "role": 0, "un": "MyBot"} };
+      console.log("LocalMsg : " + localMsg);
       var bufSent = 0;
       while (bufSent < msg.length) {
+        console.log("bufSent : " + bufSent);
         maxMsgSize = (msg.length - bufSent) >= 795 ? 795 : msg.length - bufSent;
+        console.log("Max MSG Size : " + maxMsgSize);
         localMsg.message = htmlMsg.substring(bufSent, bufSent + maxMsgSize);
+        console.log("localMsg.message : " + localMsg.message);
         chatUtils.sendToAll(localClients, localMsg);
+        console.log("Off it went : " + localMsg.message);
         bufSent += maxMsgSize;
        }
+    } else { 
+      console.log("LOCAL CHAT OFFLINE : " + msg);
     }
   }
   if ( config.saveMyLogs > 0 ) {
-    newLogStream.write(msg + "\n", function(err){
+    newLogStream.write("SendIt: " + msg + "\n", function(err){
       if (err) {
           console.log(err);
       }
@@ -2335,7 +2345,7 @@ function killProcess(process_name, cb){
   if ( execFileSync('c:/windows/system32/tasklist.exe').indexOf(process_name) > 0 ) {
     debugIt("Found processes. Killing them.", 2);
     killResult = execFileSync('c:/windows/system32/taskkill.exe', ["/F", "/T", "/IM", process_name]); // force, children, matching name
-    SendIt(9999, status_channel, killResult); 
+    SendIt(9999, status_channel, killResult.toString()); 
   };
 }
 
