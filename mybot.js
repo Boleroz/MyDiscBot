@@ -1506,9 +1506,10 @@ function getMemuInLSSAccoutOrder() {
 }
 
 function buildBaseArray() {
-  for (baseNum=0; baseNum<LSSConfig.length; baseNum++) {
+  var memu_reference = getMemuInLSSAccoutOrder();
+//  for (baseNum=0; baseNum<LSSConfig.length; baseNum++) {
+  for (baseNum=0; baseNum<memu_reference.length; baseNum++) {
     var id = LSSConfig[baseNum].Account.Id;
-    var memu_reference = getMemuInLSSAccoutOrder();
     bases.push(Object.create(base));
     bases[baseNum]._id = id;
     bases[baseNum].id = id;
@@ -1596,6 +1597,7 @@ function loadBaseConfigs() {
     debugIt(util.inspect(LSSConfig[a], true, 7, true), 4);
     debugIt("Handling Account number " + a + " ID of " + bases[a].id, 2);
     bases[a].processed = false; // always set to not processed on new load
+    bases[a].skippable = false; // by default a base is not skippable
     if ( config.manageActiveBasesTime > 0 ) { // not managing active state. set to configured state.
       bases[a].storedActiveState = paused_config[a].Account.Active;
     } else {
@@ -1610,6 +1612,9 @@ function loadBaseConfigs() {
         debugIt("Processing " + action.Script.Name + " for " + bases[a].name, 1);
         if ( action.Script.Name.includes("hield") ) { // catch most variations of shield
           bases[a].shield = Object.assign(bases[a].shield, parseShieldAction(action));
+        }
+        if (action.Script.Name.includes("Skip")) { // this has a skip configured so it becomes actively managed
+          bases[a].skippable = true;
         }
       }
       debugIt(util.inspect(bases[a].actions, true, 10, true), 4);
@@ -2115,14 +2120,19 @@ function getSkipExpireList(within = 60) { // one hour
   var nextBases = [];
   loadBaseTimers();  // make sure we are working with the latest skip timers
   for ( i=0; i<bases.length; i++ ) {
-    debugIt("Checking expire for instance " + i + " instanceID of " + bases[i].id, 1);
-    if ( bases[i].storedActiveState == false ) { continue; } // this is simply off by default 
-    var expires = bases[i].timers.SkipAccountTime + (bases[i].timers.SkipAccountMinutes * 60 * 1000);
-    var cutoff = Date.now() + ( within * 60 * 1000 )
-    if ( expires < cutoff ) {
+    if ( bases[i].skippable ) {
+      debugIt("Checking expire for instance " + i + " instanceID of " + bases[i].id + " named " + bases[i].name, 1);
+      if ( bases[i].storedActiveState == false ) { continue; } // this is simply off by default 
+      var expires = bases[i].timers.SkipAccountTime + (bases[i].timers.SkipAccountMinutes * 60 * 1000);
+      var cutoff = Date.now() + ( within * 60 * 1000 )
+      if ( expires < cutoff ) {
+        nextBases.push(i);
+        debugIt("Skip will expire for instance: " + bases[i].name,1);
+        debugIt("  Skip ends at " + new Date(bases[i].timers.SkipAccountTime + (bases[i].timers.SkipAccountMinutes) * 60 * 1000), 1);
+      }
+    } else {
+      debugIt("Instance " + i + " instanceID of " + bases[i].id + " named " + bases[i].name + "is not skippable", 1);
       nextBases.push(i);
-      debugIt("Skip will expire for instance: " + bases[i].name,1);
-      debugIt("  Skip ends at " + new Date(bases[i].timers.SkipAccountTime + (bases[i].timers.SkipAccountMinutes) * 60 * 1000), 1);
     }
   }
   return nextBases;
