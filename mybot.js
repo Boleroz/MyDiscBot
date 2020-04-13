@@ -1600,6 +1600,9 @@ function loadBaseConfigs() {
     bases[a].skippable = false; // by default a base is not skippable
     if ( config.manageActiveBasesTime > 0 ) { // not managing active state. set to configured state.
       bases[a].storedActiveState = paused_config[a].Account.Active;
+      if ( !bases[a].storedActiveState) {
+        bases[a].skippable = true; // these are always skippable
+      }
     } else {
       bases[a].storedActiveState = LSSConfig[a].Account.Active;
     }
@@ -1621,6 +1624,7 @@ function loadBaseConfigs() {
     } else {
       debugIt("Account ID " + bases[a].id + ":" + bases[a].name + " has no actions", 1);
       bases[a].storedActiveState = false;
+      bases[a].skippable = true;
     }
     debugIt(util.inspect(bases[a], true, 10, true), 4);
     loadBaseTimers();
