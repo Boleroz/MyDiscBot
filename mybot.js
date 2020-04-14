@@ -81,6 +81,9 @@ var defaultConfig = {
   "process_main": 0,
   "saveMyLogs": 1,
   "checkforAPK": 0,
+  "checkforGNBUpdate": 1,
+  "GNBUpdateURL": "http://goodnightbot.net/gn/gnbot/full/GNLauncher.zip",
+  "GNBStats": "./gnbstats.json",
   "apkStart": "https://www.gnbots.com/apk",
   "apkPath": "Last%20Shelter%20Survival/game.apk",
   "apkDest": "./downloaded.apk",
@@ -384,6 +387,11 @@ if ( config.checkforAPK ) {
   setInterval(checkAPK, 60* 60 * 1000);
 }
 
+if ( config.checkforGNBUpdate > 0 ) {
+  SendIt("Checking for a new bot every hour");
+  setInterval(checkGNB, 60* 60 * 1000);
+}
+
 if ( config.manageActiveBasesTime > 0 ) {
   if ( !fileExists(config.PausedMaster)) {
     SendIt(9999, status_channel, "Bad active base management config. (PausedMaster) - disabling.")
@@ -412,6 +420,7 @@ if ( config.GNBotRestartFullCycle > 0 ) {
     config.GNBotRestartInterval = 0;
     SendIt(9999, status_channel, "Disabled restarting on interval (GNBotRestartInterval) because full cycle configured.");
   }
+  setInterval(restartFullCycleCheck, 30 * 60 * 1000); // check every 30 minutes. Also handled in cycle time if needed.
 }
 
 // when we get here we aren't restarting on full cycle and have a restart interval
@@ -481,7 +490,8 @@ var express = require('express');
 var basicAuth = require('express-basic-auth')
 var sockjs = require('sockjs');
 var chalk = require('chalk');
-
+var forge = require('node-forge');
+var pki = forge.pki;
 var log = require('./lib/log.js');
 var chatUtils = require('./lib/utils.js');
 var pack = require('./package.json');
@@ -518,6 +528,54 @@ if ( chatConfig.active > 0 ) { // hack in a chat server
   app.locals.version = pack.version;
 
   /* Routes */
+  app.use('/status', function (req, res, next) {
+    var currTime = Date.now();
+    var htmlResponse = "The current time is " + currTime + "<br>";
+    debugIt(htmlResponse, 2);
+    htmlResponse += getStatusMessage().replace(new RegExp("\n", "g"), "<br>");
+    res.send(htmlResponse);
+    // next(); // don't continue to process
+  });
+  app.use('/statusjson', function (req, res, next) {
+    var currTime = Date.now();
+    var statsJson = {};
+    updateStats();
+    statsJson.currTime = currTime;
+    statsJson.elapsedTime = elapsedTime;
+    statsJson.totalProcessed = totalProcessed;
+    statsJson.averageProcessingTime = averageProcessingTime;
+    statsJson.averageCycleTime = averageCycleTime;
+    statsJson.uptime = os.uptime / 60;
+    statsJson.freeMem = os.freemem();
+    statsJson.totalMem = os.totalmem();
+    statsJson.instances = countProcess(config.memuProcessName);
+    statsJson.botInstance = countProcess(config.processName);
+    statsJson.grandTotalProcessed = grandTotalProcessed;
+    statsJson.status = config.disabled ? "disabled" : paused ? "paused" : "active";
+    debugIt(util.inspect(statsJson, true, 4 ,true), 2);
+    res.send(JSON.stringify(statsJson));
+    // next(); // don't continue to process
+  });
+  app.use('/botstatus', function (req, res, next) {
+    debugIt("Handling botstatus request", 2);
+    res.send(countProcess(config.processName).toString());
+    // next(); // don't continue to process
+  });
+  app.use('/instances', function (req, res, next) {
+    debugIt("Handling instances request", 2);
+    res.send(countProcess(config.memuProcessName).toString());
+    // next(); // don't continue to process
+  });
+  app.use('/freemem', function (req, res, next) {
+    debugIt("Handling freemem request", 2);
+    res.send(os.freemem().toString());
+    // next(); // don't continue to process
+  });
+  app.use('/uptime', function (req, res, next) {
+    debugIt("Handling uptime request", 2);
+    res.send((os.uptime / 60).toString());
+    // next(); // don't continue to process
+  });
   app.use(chatConfig.url, basicAuth(chatConfig.options), express.static(path.join(__dirname, 'public')));
   app.get(chatConfig.url, function (req, res) {
       res.render('index', {version:pack.version});
@@ -787,6 +845,9 @@ if ( chatConfig.active > 0 ) { // hack in a chat server
   if(!chatConfig.ssl.use) {
       server = http.createServer(app);
   } else {
+    if ( !fileExists(chatConfig.ssl.key) || !fileExists(chatConfig.ssl.cert)) {
+      generateSSLCert();
+    }
       var opt = {
           key: fs.readFileSync(chatConfig.ssl.key),
           cert: fs.readFileSync(chatConfig.ssl.cert)
@@ -799,6 +860,81 @@ if ( chatConfig.active > 0 ) { // hack in a chat server
   server.on('error', onError);
   server.on('listening', onListening);
 
+    // we are only looking to prevent casual prying eyes here
+    function generateSSLCert() {
+      var keys = pki.rsa.generateKeyPair(2048);
+      var cert = pki.createCertificate();
+      cert.publicKey = keys.publicKey;
+      cert.serialNumber = '01';
+      cert.validity.notBefore = new Date();
+      cert.validity.notAfter = new Date();
+      cert.validity.notAfter.setFullYear(cert.validity.notBefore.getFullYear() + 3);
+      var attrs = [{
+        name: 'commonName',
+        value: chatConfig.host
+      }, {
+        name: 'countryName',
+        value: 'US'
+      }, {
+        shortName: 'ST',
+        value: 'California'
+      }, {
+        name: 'localityName',
+        value: 'ashville'
+      }, {
+        name: 'organizationName',
+        value: 'GNB'
+      }, {
+        shortName: 'OU',
+        value: 'hosted'
+      }];
+      cert.setSubject(attrs);
+      cert.setIssuer(attrs);
+      cert.setExtensions([{
+        name: 'basicConstraints',
+        cA: true
+      }, {
+        name: 'keyUsage',
+        keyCertSign: true,
+        digitalSignature: true,
+        nonRepudiation: true,
+        keyEncipherment: true,
+        dataEncipherment: true
+      }, {
+        name: 'extKeyUsage',
+        serverAuth: true,
+        clientAuth: true,
+        codeSigning: true,
+        emailProtection: true,
+        timeStamping: true
+      }, {
+        name: 'nsCertType',
+        client: true,
+        server: true,
+        email: true,
+        objsign: true,
+        sslCA: true,
+        emailCA: true,
+        objCA: true
+      }, {
+        name: 'subjectAltName',
+        altNames: [{
+          type: 6, // URI
+          value: chatConfig.host
+        }, {
+          type: 7, // IP
+          ip: chatConfig.host
+        }]
+      }, {
+        name: 'subjectKeyIdentifier'
+      }]);
+      cert.sign(keys.privateKey);
+      var privKey = pki.privateKeyToPem(keys.privateKey);
+      fs.writeFileSync(chatConfig.ssl.key, privKey);
+      var myCert = pki.certificateToPem(cert);
+      fs.writeFileSync(chatConfig.ssl.cert, myCert);
+    }
+    
   function onError(error) {
       if(error.syscall !== 'listen') {
           throw error;
@@ -919,7 +1055,9 @@ function process_log(session, data) {
 
 					if (module == 'runtime' && (action == 'startingbase' || action == 'startedbase')) {
             var baseIndex = nameMap[content[1]];
+            debugIt("fetched base index of " + baseIndex + " for " + content[1] + " with ID of " + bases[baseIndex].id, 3);
             sessions[session].id = bases[baseIndex].id;
+            debugIt("resulting session #" + session + " ID is " + sessions[session].id, 3 );
 						switch (action) {
 							case 'startingbase': sessions[session].state = "Starting"; break;
 							case 'startedbase':
@@ -964,13 +1102,15 @@ function process_log(session, data) {
               // We have already reported on this
               return;
             }
-						sessions[session].processed += 1;
+            sessions[session].processed += 1;
+            grandTotalProcessed += 1;
             var base_id = nameMap[sessions[session].name];
             // If we start in the middle of a run, sessions may not yet be filled out.
             if (base_id != 9999 && typeof(bases[base_id]) != 'undefined') {
               bases[base_id].total_time += (time - bases[base_id].time);
               bases[base_id].runs += 1;
               bases[base_id].processed = true;
+              bases[base_id].processedCount += 1;
               runtime = timeDiffHoursMinutes(time, bases[base_id].time)
               // a case exists where things just go to shit and instances never start or start and fail really fast
               // this will catch those cases and after too many simply reboot the system
@@ -1386,6 +1526,14 @@ if(typeof(config.ownerID) != 'undefined' && ( owner !== config.ownerID && config
     paused = 1;
     stopBot();
   } else 
+  if (command === "updategnb") {
+    SendIt("GNB update requested. This may take up to 5 minutes.");
+    paused = 1;
+    stopBot();
+    setTimeout(updateGNB, 10 * 1000);
+    setTimeout(killProcess(config.processName), 60 * 1000);
+    setTimeout(startBot, 180 * 1000);
+  } else   
   if (command === "killbot") {
     SendIt(9999, status_channel, "Kill of " + config.processName + " requested");
 //    paused = 1;  // don't want to pause it by default on a kill
@@ -1598,6 +1746,7 @@ function loadBaseConfigs() {
     debugIt("Handling Account number " + a + " ID of " + bases[a].id, 2);
     bases[a].processed = false; // always set to not processed on new load
     bases[a].skippable = false; // by default a base is not skippable
+    bases[a].processedCount = 0;
     if ( config.manageActiveBasesTime > 0 ) { // managing active pause state. set to configured state in paused master file.
       bases[a].storedActiveState = paused_config[a].Account.Active;
       if ( !bases[a].storedActiveState) { // these are just off by default
@@ -1862,12 +2011,17 @@ function checkCycleTime() {
       pauseBot(config.minimumCycleTime - averageCycleTime, 0);
     } else {
       // okay, not up against minimums but still need to see if we are restarting on full cycle
-      if  (!paused && config.GNBotRestartFullCycle > 0 && ( getProcessedBaseCount() + config.GNBotRestartFullCycle ) > getActiveBaseCount() ) { 
-        SendIt(9999, status_channel, "```diff\n + Restarting GNBot on full cycle completion by config (GNBotRestartFullCycle)```")
-        restartBot(); 
-      }
+      restartFullCycleCheck();
     }
   } 
+}
+
+function restartFullCycleCheck() {
+  updateStats();
+  if  (!paused && config.GNBotRestartFullCycle > 0 && ( getProcessedBaseCount() + config.GNBotRestartFullCycle ) > getActiveBaseCount() ) { 
+    SendIt("```diff\n + Restarting GNBot on full cycle completion by config (GNBotRestartFullCycle)```")
+    restartBot(); 
+  }
 }
 
 function getStatusMessage(detailed = false) {
@@ -1892,7 +2046,7 @@ function getStatusMessage(detailed = false) {
   if ( count.length > 0 ) {
     msg += "There are **" + count.length + "** shields **expired or expiring within the hour**\n";
   }
-  msg += "A total of " + totalProcessed + " instances have been handled in " + elapsedTime + " minutes\n";
+  msg += "A total of " + grandTotalProcessed + " instances have been handled in " + elapsedTime + " minutes\n";
   msg += "with an average processing time of " + averageProcessingTime + " minutes\n";
   msg += "There are " + getActiveBaseCount() + "active" + " instances for a cycle time(est) of " + averageCycleTime + " minutes\n";
   if ( detailed ) { 
@@ -2664,6 +2818,18 @@ function execBot(time = 5) {
   }, time * 1000);
 }
 
+function updateGNB() {
+  if ( config.disabled ) { return; }
+  var myCwd = process.cwd();
+  process.chdir(config.GNBotDir);
+  const child = execFile(config.GNBotDir + config.Launcher, [config.UpdateLauncher], (error, stdout, stderr) => {
+    if (error) {
+      throw(error);
+    }
+  });
+  process.chdir(myCwd);
+}
+
 function stopBot() {
   if ( config.disabled ) { return; }
   if ( config.killstop > 0 ) {
@@ -2840,6 +3006,18 @@ function copyFile (source, dest, clobber = false) {
   console.log('Could not copy file ' + source + ' to ' + dest);
 }
 
+function checkGNB() {
+  isNewGNBAvailable(config.GNBUpdateURL, config.GNBStats).then( function(newStats) {
+    debugIt("A new GNB is available \n" + util.inspect(newStats), 1);
+    SendIt("A new GNB is available. Triggering an update. Things should return to normal within 5 minutes.");
+    // really don't feel like promisfying right now
+    stopBot(); // first stop the running bot
+    setTimeout(updateGNB, 10 * 1000); // now initiate an update 10 seconds later
+    setTimeout(killProcess, 60 * 1000, config.processName); // give that a minute to run and then kill it off
+    setTimeout(startBot, 180 * 1000); // and then start again
+  });
+}
+
 /**
  * Create an OAuth2 client with the given credentials, and then execute the
  * given callback function.
@@ -2975,6 +3153,32 @@ function getRealAPKurl(root) {
       reject("Server doesn't report any changes for " + apkURL);
       cb(err);
     });
+  });// Promise
+}
+
+function isNewGNBAvailable(url, oldStats) {
+  var http_or_https = http;
+  if (/^https:\/\/(\w+:{0,1}\w*@)?(\S+)(:[0-9]+)?(\/|\/([\w#!:.?+=&%@!\-\/]))?$/.test(url)) {
+      http_or_https = https;
+  }
+  var myURL = new URL(url);
+  var options = {method: 'HEAD', host: myURL.host, port: myURL.port, path: myURL.pathname};
+  return new Promise( function(resolve, reject) {
+    var req = http_or_https.request(options, function(res) {
+      var serverSize = res.headers["content-length"];
+      var serverDateStr = res.headers["last-modified"];
+      var isNewFileBySize = serverSize != oldStats.size;
+      var isNewFileByDate = serverDateStr != oldStats.datestr;
+      if ( isNewFileByDate || isNewFileBySize ) {
+        oldStats.size = serverSize;
+        oldStats.datestr = serverDateStr;
+        storeJSON(oldStats, config.GNBStats)
+        resolve(oldStats);
+      } else {
+        reject("Server doesn't report any changes for " + url);
+      }
+    }); // http.request
+    req.end();
   });// Promise
 }
 
