@@ -1657,32 +1657,62 @@ function buildBaseArray() {
   var memu_reference = getMemuInLSSAccoutOrder();
 //  for (baseNum=0; baseNum<LSSConfig.length; baseNum++) {
   for (baseNum=0; baseNum<memu_reference.length; baseNum++) {
-    var id = LSSConfig[baseNum].Account.Id;
-    bases.push(Object.create(base));
-    bases[baseNum]._id = id;
-    bases[baseNum].id = id;
-    bases[baseNum].UUID = memu_reference[baseNum].uuid;
-    bases[baseNum].path = memu_reference[baseNum].path;
-    bases[baseNum].created = memu_reference[baseNum].created;
-    bases[baseNum].activity = {};
-    // track which entry in the array is for this base by ID
-    idMap[id] = baseNum;
-    if (!fs.existsSync(bases[baseNum].path)) {
-      console.log("Missing MEMU instance config file " + bases[baseNum].path);
-      process.exit(1);
-    } 
-    var memuConf = loadMemuXML(bases[baseNum].path);
-    for (let val of memuConf.MemuHyperv.Machine.Hardware.GuestProperties.GuestProperty) {
-      // debugIt(util.inspect(val),2);
-      switch (val.name) {
-        case "name_tag":
-          bases[baseNum].name = val.value;
-          // track which entry in the array is for this base by name
-          nameMap[bases[baseNum].name] = baseNum;
-          break;
+    if ( typeof(LSSConfig[baseNum].Account) != 'undefined') { // memu can have them but not be configured in GNBot
+      var id = LSSConfig[baseNum].Account.Id;
+      bases.push(Object.create(base));
+      bases[baseNum]._id = id;
+      bases[baseNum].id = id;
+      bases[baseNum].UUID = memu_reference[baseNum].uuid;
+      bases[baseNum].path = memu_reference[baseNum].path;
+      bases[baseNum].created = memu_reference[baseNum].created;
+      bases[baseNum].activity = {};
+      // track which entry in the array is for this base by ID
+      idMap[id] = baseNum;
+      if (!fs.existsSync(bases[baseNum].path)) {
+        console.log("Missing MEMU instance config file " + bases[baseNum].path);
+        process.exit(1);
+      } 
+      var memuConf = loadMemuXML(bases[baseNum].path);
+      for (let val of memuConf.MemuHyperv.Machine.Hardware.GuestProperties.GuestProperty) {
+        // debugIt(util.inspect(val),2);
+        switch (val.name) {
+          case "name_tag":
+            bases[baseNum].name = val.value;
+            // track which entry in the array is for this base by name
+            nameMap[bases[baseNum].name] = baseNum;
+            break;
+        }
       }
+      debugIt(util.inspect(bases[baseNum], true, 10, true), 4);
+    } else { // memu has it but it isn't configured in GNBot
+      // NOT sure what happens when I do this... Going to try it and see.
+      // these instances are in memu but not configured in GNBot
+      debugIt("Discovered unconfigured instance " + basenum + ". Making fake instance.", 2);
+      var id = baseNum + 9999;
+      bases.push(Object.create(base));
+      bases[baseNum]._id = memu_reference.id;
+      bases[baseNum].id = memu_reference.id;      
+      bases[baseNum].UUID = memu_reference[baseNum].uuid;
+      bases[baseNum].path = memu_reference[baseNum].path;
+      bases[baseNum].created = memu_reference[baseNum].created;
+      bases[baseNum].processed = false;
+      bases[baseNum].skippable = false;
+      bases[baseNum].processedCount = 0;
+      bases[baseNum].storedActiveState = false;
+      bases[baseNum].skippable = true;
+      // make sure the LSS config has what is needed to not cause us problems
+      LSSConfig[baseNum] = { "Account": {
+        "Email": "youremail@gmail.com",
+        "Pwd": "",
+        "Id": id,
+        "Instance": 0,
+        "Setup": false,
+        "Active": false,
+        "EmailSlot": 1.0,
+        "Custom": {}
+      },
+      "List": [] };
     }
-    debugIt(util.inspect(bases[baseNum], true, 10, true), 4);
   }
 }
 
