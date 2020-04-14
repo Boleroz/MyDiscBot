@@ -1598,14 +1598,14 @@ function loadBaseConfigs() {
     debugIt("Handling Account number " + a + " ID of " + bases[a].id, 2);
     bases[a].processed = false; // always set to not processed on new load
     bases[a].skippable = false; // by default a base is not skippable
-    if ( config.manageActiveBasesTime > 0 ) { // not managing active state. set to configured state.
+    if ( config.manageActiveBasesTime > 0 ) { // managing active pause state. set to configured state in paused master file.
       bases[a].storedActiveState = paused_config[a].Account.Active;
-      if ( !bases[a].storedActiveState) {
-        bases[a].skippable = true; // these are always skippable
+      if ( !bases[a].storedActiveState) { // these are just off by default
+        bases[a].skippable = true; // and by definition are always skippable
       }
-    } else {
+    } else { // it is what ever is in the default mastered config
       bases[a].storedActiveState = LSSConfig[a].Account.Active;
-    }
+    } 
     if ( typeof(LSSConfig[a].List) != 'undefined' ) { // account isn't configured
       bases[a].actions = LSSConfig[a].List;
       debugIt("Grabbed the actions for account ID " + bases[a].id + ":" + bases[a].name, 1)
@@ -1654,7 +1654,7 @@ function parseShieldAction(action = null) {
 
 // returns an array of base IDs that will expire with N minutes
 function activateBases(minutes = config.manageActiveBasesTime) {
-  var baseList = getSkipExpireList(minutes); // will contain the base index for bases that should go active
+  var baseList = getSkipExpireList(minutes); // will contain the base index(es) for bases that should go active
   var shieldList = getExpiredShields(minutes); // we need to see if a shield will expire and thus should be active
   // ^^^ THis doesn't currently override a skip but worse case it catches it next run
   var msg = "Active bases this run are\n";
@@ -2134,7 +2134,7 @@ function getSkipExpireList(within = 60) { // one hour
         debugIt("Skip will expire for instance: " + bases[i].name,1);
         debugIt("  Skip ends at " + new Date(bases[i].timers.SkipAccountTime + (bases[i].timers.SkipAccountMinutes) * 60 * 1000), 1);
       }
-    } else {
+    } else { // it isn't skippable so don't skip it
       debugIt("Instance " + i + " instanceID of " + bases[i].id + " named " + bases[i].name + "is not skippable", 1);
       nextBases.push(i);
     }
