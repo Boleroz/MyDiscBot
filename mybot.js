@@ -1657,7 +1657,7 @@ function buildBaseArray() {
   var memu_reference = getMemuInLSSAccoutOrder();
 //  for (baseNum=0; baseNum<LSSConfig.length; baseNum++) {
   for (baseNum=0; baseNum<memu_reference.length; baseNum++) {
-    debugIt("Handling MEMU entry of " + basenum + "\n" + util.inspect(memu_reference[basenum], true, 4, true), 2);
+    debugIt("Handling MEMU entry of " + baseNum + "\n" + util.inspect(memu_reference[baseNum], true, 4, true), 2);
     debugIt("LSS Config for corresponding entry " + util.inspect(LSSConfig[baseNum], true, 4 ,true), 3);
     if ( typeof(LSSConfig[baseNum].Account) != 'undefined' && typeof(LSSConfig[baseNum].Account.Id) != 'undefined') { // memu can have them but not be configured in GNBot
       var id = LSSConfig[baseNum].Account.Id;
@@ -1689,7 +1689,7 @@ function buildBaseArray() {
     } else { // memu has it but it isn't configured in GNBot
       // NOT sure what happens when I do this... Going to try it and see.
       // these instances are in memu but not configured in GNBot
-      debugIt("Discovered unconfigured instance " + basenum + ". Making fake instance.", 2);
+      debugIt("Discovered unconfigured instance " + baseNum + ". Making fake instance.", 2);
       var id = baseNum + 9999;
       bases.push(Object.create(base));
       bases[baseNum]._id = memu_reference.id;
