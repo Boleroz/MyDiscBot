@@ -1659,7 +1659,7 @@ function buildBaseArray() {
   for (baseNum=0; baseNum<memu_reference.length; baseNum++) {
     debugIt("Handling MEMU entry of " + baseNum + "\n" + util.inspect(memu_reference[baseNum], true, 4, true), 2);
     debugIt("LSS Config for corresponding entry " + util.inspect(LSSConfig[baseNum], true, 4 ,true), 3);
-    if ( typeof(LSSConfig[baseNum].Account) != 'undefined' && typeof(LSSConfig[baseNum].Account.Id) != 'undefined') { // memu can have them but not be configured in GNBot
+    if ( typeof(LSSConfig[baseNum].Account) != 'undefined' || typeof(LSSConfig[baseNum].Account.Id) != 'undefined') { // memu can have them but not be configured in GNBot
       var id = LSSConfig[baseNum].Account.Id;
       bases.push(Object.create(base));
       bases[baseNum]._id = id;
