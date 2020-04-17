@@ -18,6 +18,7 @@ const http = require('http');
 const crypto = require('crypto');
 
 var configFile = "./mybot.json";
+var regExe = "c:/windows/system32/reg.exe";
 var cloudLogs = {}; // will hold the cloud module if defined
 
 if ( typeof(args[0]) != 'undefined' && fileExists(args[0]) ) {
@@ -50,6 +51,17 @@ config.offline = 1;
 // open the log stream as soon as we can
 var newLogStream = openNewLog(config.DuplicateLog);
 
+// fix up the log line
+var lastGNBotProductUsed = getGNBotLastProductUsed();
+
+if ( typeof(lastGNBotProductUsed) != "undefined" ) {
+  config.GNBotProfile = config.GNBotProfile.replace('{LastProduct}', lastGNBotProductUsed);
+} else {
+  console.log("Could not identify the last game played. Please run and configure GNBot at least once.");
+  // Things will most likely fail after here but don't prevent successful manual configuration
+  // process.exit(1);
+}
+
 // Always start with a master config
 getMasterConfig(getDesiredActiveConfig(), true); // force a clean version at startup
 
@@ -74,7 +86,7 @@ var defaultConfig = {
   "MEMUPath": 'C:/Program Files/Microvirt/MEmu/MemuHyperv VMs',
   "MEMUC": 'C:/Program Files/Microvirt/MEmu/memuc.exe',
   "GNBotSettings": '{USERDIR}/Desktop/GNLauncher/settings.json',
-  "GNBotProfile": '{USERDIR}/Desktop/GNLauncher/profiles/actions/LssBot/default.json',
+  "GNBotProfile": '{USERDIR}/Desktop/GNLauncher/profiles/actions/{LastProduct}/default.json',
   "GNBotDir": '{USERDIR}/Desktop/GNLauncher/',
   "GNBotLogMask": '{GNBotDir}/logs/log_{N}.txt',
   "GNBotLogMain": '{GNBotDir}/logs/log_main.txt',
@@ -427,7 +439,7 @@ if ( config.GNBotRestartFullCycle > 0 ) {
 if ( config.GNBotRestartInterval > 0 ) {
   setInterval(function() {
     SendIt(9999, status_channel, "```diff\n + Restarting GNBot based on config (GNBotRestartInterval)```")
-    stopBot();
+    stopBot(1);
     setTimeout(startBot, 10 * 1000);
   }, config.GNBotRestartInterval * 60 * 1000);
 };
@@ -551,6 +563,7 @@ if ( chatConfig.active > 0 ) { // hack in a chat server
     statsJson.instances = countProcess(config.memuProcessName);
     statsJson.botInstance = countProcess(config.processName);
     statsJson.grandTotalProcessed = grandTotalProcessed;
+    statsJson.oldestTime = oldest_date;
     statsJson.status = config.disabled ? "disabled" : paused ? "paused" : "active";
     debugIt(util.inspect(statsJson, true, 4 ,true), 2);
     res.send(JSON.stringify(statsJson));
@@ -1129,7 +1142,8 @@ function process_log(session, data) {
                   SendIt(9999, status_channel, strFail);
                   debugIt("TOO MANY INSTANCE FAILURES, REBOOTING", 2);
                   reboot(90);
-                  stopBot();
+                  paused = 1;
+                  stopBot(1);
                 }
               } else {
                 success++; // If we have successfully started half as many times as max failures we assume all is okay
@@ -1496,7 +1510,7 @@ if(typeof(config.ownerID) != 'undefined' && ( owner !== config.ownerID && config
       paused = 120;
     } 
     reboot(paused);
-    stopBot(); // don't let a stop interrupt a reboot
+    stopBot(paused); // don't let a stop interrupt a reboot
   } else
   if (command === "abort") {
     SendIt(9999, status_channel, "Aborting reboot request.");
@@ -1524,12 +1538,12 @@ if(typeof(config.ownerID) != 'undefined' && ( owner !== config.ownerID && config
   if (command === "stop") {
     SendIt(9999, status_channel, "Stop requested");
     paused = 1;
-    stopBot();
+    stopBot(1);
   } else 
   if (command === "updategnb") {
     SendIt("GNB update requested. This may take up to 5 minutes.");
     paused = 1;
-    stopBot();
+    stopBot(1);
     setTimeout(updateGNB, 10 * 1000);
     setTimeout(killProcess(config.processName), 60 * 1000);
     setTimeout(startBot, 180 * 1000);
@@ -1557,7 +1571,7 @@ if(typeof(config.ownerID) != 'undefined' && ( owner !== config.ownerID && config
     paused = 1;
     config.disabled = 1;
     storeJSON(config, configFile);
-    stopBot();
+    stopBot(1);
   } else 
   if (command === "enable") {
     SendIt(9999, status_channel, "Bot enabled! Starting.");
@@ -1588,7 +1602,7 @@ if(typeof(config.ownerID) != 'undefined' && ( owner !== config.ownerID && config
   if (command === "stopwait") {
     SendIt(9999, status_channel, "Stop requested");
     paused = 1;
-    stopBotWait();
+    stopBotWait(1);
   } else 
   if (command === "reload:patterns" || command === "reload:all" ) {
     patterns = loadPatterns();
@@ -1632,7 +1646,6 @@ function showReporting() {
   }
 }
 
-
 // appears that LSS reads and sorts then builds the config. 
 function getMemuInLSSAccoutOrder() {
   // Fetch the Memu instances
@@ -1655,11 +1668,11 @@ function getMemuInLSSAccoutOrder() {
 
 function buildBaseArray() {
   var memu_reference = getMemuInLSSAccoutOrder();
-//  for (baseNum=0; baseNum<LSSConfig.length; baseNum++) {
+// for (baseNum=0; baseNum<LSSConfig.length; baseNum++) {
   for (baseNum=0; baseNum<memu_reference.length; baseNum++) {
     debugIt("Handling MEMU entry of " + baseNum + "\n" + util.inspect(memu_reference[baseNum], true, 4, true), 2);
     debugIt("LSS Config for corresponding entry " + util.inspect(LSSConfig[baseNum], true, 4 ,true), 3);
-    if ( typeof(LSSConfig[baseNum].Account) != 'undefined' || typeof(LSSConfig[baseNum].Account.Id) != 'undefined') { // memu can have them but not be configured in GNBot
+    if ( typeof(LSSConfig[baseNum].Account) != 'undefined' && typeof(LSSConfig[baseNum].Account.Id) != 'undefined') { // memu can have them but not be configured in GNBot
       var id = LSSConfig[baseNum].Account.Id;
       bases.push(Object.create(base));
       bases[baseNum]._id = id;
@@ -2228,8 +2241,6 @@ function SendIt(session, channel = undefined, msg = "no message provided") {
         chatUtils.sendToAll(localClients, localMsg);
         bufSent += maxMsgSize;
        }
-    } else { 
-      console.log("LOCAL CHAT OFFLINE : " + msg);
     }
   }
   if ( config.saveMyLogs > 0 ) {
@@ -2402,7 +2413,7 @@ function checkBaseActivities() {
   if ( done ) { 
     SendIt(9999, status_channel, "All active bases processed. Looking for things to do")
     paused = 1;
-    stopBot();
+    stopBot(1);
     var moreBases = getSkipExpireList(1);
     if ( moreBases.length > 0 ) {
       // we have something to do
@@ -2541,9 +2552,20 @@ function killProcess(process_name, cb){
   };
 }
 
+function getGNBotLastProductUsed() {
+  var lastProduct = "";
+  SendIt("Fetching the last game used");
+  debugIt("Fetching LastProduct from HKCU\\Software\\GNBots", 1);
+  // reg.exe QUERY HKCU\Software\GNBots /v LastProduct
+  var regResult = execFileSync(regExe, ["QUERY", 'HKCU\\Software\\GNBots', "/v", "LastProduct"]).toString();
+  debugIt("Fetched " + util.inspect(regResult, true, 4, true), 2);
+  lastProduct = regResult.match(new RegExp("\\s+LastProduct\\s+REG_SZ\\s+(\\w+)"))[1];
+  debugIt("LastProduct is " + lastProduct, 1);
+  return lastProduct;
+}
+
 function setGNBotLastAccount(accountID) {
   if ( config.disabled ) { return; }
-  var regExe = "c:/windows/system32/reg.exe";
   SendIt(9999, status_channel, "setting start instance to " + accountID);
   debugIt("Editing registry key HKEY_CURRENT_USER/Software/GNBots and setting LastAccount to " + accountID, 2);
 //  execFileSync(regExe, ["DELETE", 'HKCU\\Software\\GNBots', "/f", "/v", "LastAccount"], {cwd: undefined, env: process.env, stdio: [ 'inherit', 'inherit', 'inherit' ]}); // delete the old value
@@ -2555,7 +2577,6 @@ function setGNBotLastAccount(accountID) {
 // XXX - TODO: Test what happens if it isn't there at all
 function deleteGNBotLastAccount() {
   if ( config.disabled ) { return; }
-  var regExe = "c:/windows/system32/reg.exe";
   debugIt("Deleting registry key HKEY_CURRENT_USER/Software/GNBots", 2);
   execFileSync(regExe, ["DELETE", 'HKCU\\Software\\GNBots', "/f", "/v", "LastAccount"]); // delete the old value
   debugIt("Set GNBot LastAccount to " + accountID, 1);
@@ -2766,12 +2787,12 @@ function pauseBot(minutes = 15, force = 0) {
   SendIt(9999, status_channel, "Pausing bot for " + minutes + " minutes.");
   pausedTimerHandle = setTimeout(resumeBot, minutes * 60 * 1000);
   paused = 1;
-  stopBot();
+  stopBot(1);
 }
 
 function restartBot() {
   paused = 1;
-  stopBot();
+  stopBot(1);
   setTimeout(resumeBot, 30 * 1000); // give time for the bot to actually shut down before trying to restart it
 }
 
@@ -2814,8 +2835,14 @@ function startBot(targetConfig = getDesiredActiveConfig(), targetBase = "" ){
   clearTimeout(pausedTimerHandle);
   resetStats();
   if (checkProcess(config.processName)) {
-    paused = 0; // if the bot is running we are not paused
-    return;
+    botRunningChecks++;
+    if ( botRunningChecks > config.maxfailures / 2) { // balance between users working with the bot and the bot recognizing
+                                                      // things are runnin and shouldn't be in a paused state
+                                                      // The correct answer is to split up the states and determine which one we are in
+                                                      // for another time though.
+      paused = 0; // if the bot is running we are not paused
+      return;
+    }
   }
   setThreads(config.GNBotThreads);
   setConfig(targetConfig); // fixes up the config and sets the first active base as the one to start with
@@ -2862,8 +2889,9 @@ function updateGNB() {
   process.chdir(myCwd);
 }
 
-function stopBot() {
+function stopBot(pauseStarting = 1) {
   if ( config.disabled ) { return; }
+  paused = pauseStarting;
   if ( config.killstop > 0 ) {
     killProcess(config.processName);
     if ( checkProcess(config.memuProcessName) ) {
@@ -2882,8 +2910,9 @@ function stopBot() {
   }
 }
 
-function stopBotWait() {
+function stopBotWait(pauseStarting = 1) {
   if ( config.disabled ) { return; }
+  pause = pauseStarting;
   var myCwd = process.cwd();
   process.chdir(config.GNBotDir);
   execFileSync(config.GNBotDir + config.Launcher, [config.StopLauncher], {"timeout":15000}); // 15 sec should be ample time
@@ -2914,7 +2943,7 @@ function reboot(seconds = 120) {
   });
   SendIt(9999, status_channel, "```diff\n + REBOOTING IN " + seconds + " SECONDS! Issue !abort to stop the reboot.```");
   if ( checkProcess(config.processName) ) { // mode to end so that if bot doesn't stop it doesn't interrupt reboot
-    stopBot(); // don't use a stopwait
+    stopBot(1); // don't use a stopwait
   }
 }
 
@@ -3043,7 +3072,7 @@ function checkGNB() {
     debugIt("A new GNB is available \n" + util.inspect(newStats), 1);
     SendIt("A new GNB is available. Triggering an update. Things should return to normal within 5 minutes.");
     // really don't feel like promisfying right now
-    stopBot(); // first stop the running bot
+    stopBot(1); // first stop the running bot
     setTimeout(updateGNB, 10 * 1000); // now initiate an update 10 seconds later
     setTimeout(killProcess, 60 * 1000, config.processName); // give that a minute to run and then kill it off
     setTimeout(startBot, 180 * 1000); // and then start again
@@ -3141,7 +3170,7 @@ function checkAPK() {
         if ( isNewFile ) {
           SendIt(9999, status_channel, "@everyone - disabling bot. A new APK is available at " + config.apkDest);
           SendIt(9999, status_channel, "It is strongly encouraged the new APK be installed before using !enable. Failure to do so may result in having to complete the tutorials again.");
-          stopBot();
+          stopBot(1);
           config.disabled = 1;
           storeJSON(config, configFile);
         }
