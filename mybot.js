@@ -222,6 +222,7 @@ var totalProcessed = 0;
 var elapsedTime = 0;
 var averageCycleTime = 0;
 var averageProcessingTime = 0;
+var botRunningChecks = 0;
 var pausedTimerHandle = {};
 var maintTimerHandle = {};
 var gatherFile = "";
@@ -1953,6 +1954,7 @@ function takeVideoScreenShot(post = false) {
   if ( config.disabled ) { return; }
   // ffmpeg.exe -f gdigrab -framerate 1 -i desktop -vframes 1 output.jpeg
   if ( !config.screenshot ) {return;} // If they aren't allowed don't do them
+  if ( !fileExists(config.ffmpeg)) {return;}
   var screenshotName = config.screenshotDir + "screenshot" + Date.now() + ".jpg";
   execFileSync(config.ffmpeg, ["-f", "gdigrab", "-framerate", "1", "-i", "desktop", "-vframes", "1", screenshotName], {"timeout":5000});
   if ( post ) {
@@ -1976,6 +1978,7 @@ function takeVideo(post = false, length = 30, targetWindow = "desktop") {
 
   // ffmpeg.exe -y -rtbufsize 150M -f gdigrab -framerate 30 -draw_mouse 1 -i desktop -c:v libx264 -r 30 -preset ultrafast -tune zerolatency -crf 28 -pix_fmt yuv420p -movflags +faststart "output.mp4"
   if ( !config.screenshot ) {return;} // If they aren't allowed don't do them
+  if ( !fileExists(config.ffmpeg)) {return;}
   var screenshotName = config.screenshotDir + "screenVideo" + Date.now() + ".mp4";
 //   execFileSync(config.ffmpeg, ["-y", "-rtbufsize", "150M", "-f", "gdigrab", "-framerate", "30", "-draw_mouse", "1", "-i", targetWindow, "-c:v", "libx264", "-r", "30", "-preset", "ultrafast", "-tune", "zerolatency", "-crf", "28", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-vframes", length * 30, screenshotName], {"timeout":(length + (length/10)) * 1000});
   execFileSync(config.ffmpeg, ["-y", "-rtbufsize", "150M", "-f", "gdigrab", "-framerate", "30", "-draw_mouse", "1", "-i", targetWindow, "-c:v", "libx264", "-r", "30", "-preset", "ultrafast", "-tune", "zerolatency", "-crf", "28", "-movflags", "+faststart", "-vframes", length * 30, screenshotName], {"timeout":(length + (length/10)) * 1000});
@@ -1987,6 +1990,7 @@ function takeVideo(post = false, length = 30, targetWindow = "desktop") {
 function takeScreenshot(post = config.postStatusScreenshots) {
   if ( config.disabled ) { return; }
   if ( !config.screenshot ) {return;} // If they aren't allowed don't do them
+  if ( !fileExists(config.nircmd) ) { return; } // Just in case they didn't install it
   // XXX - TODO: make the command string configurable
   var screenshotName = config.screenshotDir + "screenshot" + Date.now() + ".jpg";
   execFileSync(config.nircmd, ["savescreenshotfull",screenshotName], {"timeout":5000});
@@ -1998,6 +2002,7 @@ function takeScreenshot(post = config.postStatusScreenshots) {
 function takeWindowScreenshot(WindowTitle = "Lss", post = config.postStatusScreenshots) {
   if ( config.disabled ) { return; }
   if ( !config.screenshot ) {return;} // If they aren't allowed don't do them
+  if ( !fileExists(config.nircmd) ) { return; } // Just in case they didn't install it
   // XXX - TODO: make the command string configurable
   var screenshotName = config.screenshotDir + "screenshot" + Date.now() + ".jpg";
   activateWindow(WindowTitle);
@@ -2009,17 +2014,20 @@ function takeWindowScreenshot(WindowTitle = "Lss", post = config.postStatusScree
 
 function moveWindow(windowTitle = "Lss", X=0, Y=0, W=500, H=500) {
   if ( config.disabled ) { return; }
+  if ( !fileExists(config.nircmd) ) { return; } // Just in case they didn't install it
   execFileSync(config.nircmd, ["win","setsize","ititle", windowTitle, X, Y, W, H], {"timeout":5000});
   activateWindow(windowTitle);
 }
 
 function activateWindow(windowTitle = "Lss") {
   if ( config.disabled ) { return; }
+  if ( !fileExists(config.nircmd) ) { return; } // Just in case they didn't install it
   execFileSync(config.nircmd, ["win","activate","ititle", windowTitle], {"timeout":5000});
 }
 
 function closeWindow(windowName) {
   if ( config.disabled ) { return; }
+  if ( !fileExists(config.nircmd) ) { return; } // Just in case they didn't install it
   execFileSync(config.nircmd, ["win", "close", "ititle", windowName], {"timeout":5000});
 }
 
@@ -2841,6 +2849,7 @@ function startBot(targetConfig = getDesiredActiveConfig(), targetBase = "" ){
                                                       // The correct answer is to split up the states and determine which one we are in
                                                       // for another time though.
       paused = 0; // if the bot is running we are not paused
+      botRunningChecks = 0;
       return;
     }
   }
