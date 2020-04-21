@@ -2969,7 +2969,7 @@ function moveBotWindow() {
     let Y = config.moveGNBotWindow[1] || 0;
     let W = config.moveGNBotWindow[2] || 500;
     let H = config.moveGNBotWindow[3] || 500;
-    moveWindow("Lss", X, Y, W, H);
+    moveWindow(lastGNBotProductUsed, X, Y, W, H);
   }  
 }
 
@@ -3217,7 +3217,7 @@ function getRealAPKurl(root) {
   });// Promise
 }
 
-function isNewGNBAvailable(url, oldStats) {
+function isNewGNBAvailable(url, oldStatsFile) {
   var http_or_https = http;
   if (/^https:\/\/(\w+:{0,1}\w*@)?(\S+)(:[0-9]+)?(\/|\/([\w#!:.?+=&%@!\-\/]))?$/.test(url)) {
       http_or_https = https;
@@ -3228,8 +3228,20 @@ function isNewGNBAvailable(url, oldStats) {
     var req = http_or_https.request(options, function(res) {
       var serverSize = res.headers["content-length"];
       var serverDateStr = res.headers["last-modified"];
-      var isNewFileBySize = serverSize != oldStats.size;
-      var isNewFileByDate = serverDateStr != oldStats.datestr;
+      var isNewFileBySize = false;
+      var isNewFileByDate = false;
+      var oldStats = loadJSON(oldStatsFile);
+      if ( !oldStats ) {
+        SendIt("No existing stats for GNB updates, assuming first run")
+        isNewFileBySize = false;
+        isNewFileByDate = false;
+        oldStats.size = serverSize;
+        oldStats.datestr = serverDateStr;
+        storeJSON(oldStats, config.GNBStats)
+      } else {
+        isNewFileBySize = serverSize != oldStats.size;
+        isNewFileByDate = serverDateStr != oldStats.datestr;
+      }
       if ( isNewFileByDate || isNewFileBySize ) {
         oldStats.size = serverSize;
         oldStats.datestr = serverDateStr;
