@@ -5,7 +5,7 @@
     },
     "patterns": {
         "uri": "https://raw.githubusercontent.com/Boleroz/MyDiscBot/master/patterns.json",
-        "SHA1": "65A068FC89D21070B9BC548632591DD116FFD082"
+        "SHA1": "1F4450C7452ECB9EC7141ED6A414E0810EA94F7E"
     },
     "reporting": {
         "uri": "https://raw.githubusercontent.com/Boleroz/MyDiscBot/master/reporting.json",
@@ -13,7 +13,7 @@
     },
     "discbot": {
         "uri": "https://github.com/Boleroz/MyDiscBot/raw/master/Exe/MyBot-win.exe",
-        "SHA1": "3AEFE7C19C2AC12F7F1A854C7D255FA1BD190FA8"
+        "SHA1": "ACCC33F8A4AC61511054735B8C32437FD5CAF3D3"
     },
     "expat": {
         "uri": "https://github.com/Boleroz/MyDiscBot/raw/master/Exe/node_expat.node",

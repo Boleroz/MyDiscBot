@@ -397,12 +397,12 @@ setInterval(checkDailyConfig, 5 * 60 * 1000); // within 5 minutes of reset
 // check for a new APK every hour
 if ( config.checkforAPK ) {
   SendIt(9999, status_channel, "Checking for an new APK every hour");
-  setInterval(checkAPK, 60* 60 * 1000);
+  setInterval(checkAPK, 1 * 60 * 60 * 1000);
 }
 
 if ( config.checkforGNBUpdate > 0 ) {
-  SendIt("Checking for a new bot every hour");
-  setInterval(checkGNB, 60* 60 * 1000);
+  SendIt("Checking for a new bot every 6 hours");
+  setInterval(checkGNB, 6 * 60 * 60 * 1000);
 }
 
 if ( config.manageActiveBasesTime > 0 ) {
@@ -1142,6 +1142,7 @@ function process_log(session, data) {
                   strFail = strFail.replace('{failures}', failures);
                   SendIt(9999, status_channel, strFail);
                   debugIt("TOO MANY INSTANCE FAILURES, REBOOTING", 2);
+                  SendIt("TOO MANY INSTANCE FAILURES, REBOOTING");
                   reboot(90);
                   paused = 1;
                   stopBot(1);
@@ -1542,12 +1543,8 @@ if(typeof(config.ownerID) != 'undefined' && ( owner !== config.ownerID && config
     stopBot(1);
   } else 
   if (command === "updategnb") {
-    SendIt("GNB update requested. This may take up to 5 minutes.");
-    paused = 1;
-    stopBot(1);
-    setTimeout(updateGNB, 10 * 1000);
-    setTimeout(killProcess(config.processName), 60 * 1000);
-    setTimeout(startBot, 180 * 1000);
+    SendIt("GNB update requested. Checking for GNB updates");
+    checkGNB();
   } else   
   if (command === "killbot") {
     SendIt(9999, status_channel, "Kill of " + config.processName + " requested");
@@ -2900,8 +2897,10 @@ function updateGNB() {
 
 function stopBot(pauseStarting = 1) {
   if ( config.disabled ) { return; }
+  SendIt("Stop bot requested " + (pauseStarting ? " with " : " without ") + "pause");
   paused = pauseStarting;
   if ( config.killstop > 0 ) {
+    SendIt("FYI: Stop uses kill by configuration");
     killProcess(config.processName);
     if ( checkProcess(config.memuProcessName) ) {
       killProcess(config.memuProcessName);
@@ -2921,6 +2920,7 @@ function stopBot(pauseStarting = 1) {
 
 function stopBotWait(pauseStarting = 1) {
   if ( config.disabled ) { return; }
+  SendIt(9999, status_channel, "Stop bot wait " + pauseStarting ? "with " : "without " + "a pause");
   pause = pauseStarting;
   var myCwd = process.cwd();
   process.chdir(config.GNBotDir);
@@ -3011,6 +3011,8 @@ function watchProcess () {
       if ( processFailures > 2 ) { // someone using killbot will get a lot of @ mentions. only @ someone when it is consistent failure. 
         SendIt(9999, status_channel, "@" + config.ownerHandle + " - ATTENTION");
         SendIt(9999, status_channel, "```diff\n- CRITICAL: BOT NOT RUNNING!!!!!!! Attempting to start.```");
+      } else { 
+        SendIt(9999, status_channel, "```diff\n- BOT NOT RUNNING!!!!!!! Attempting to start.```");
       }
       startBot();
     } else {
@@ -3082,9 +3084,9 @@ function checkGNB() {
     SendIt("A new GNB is available. Triggering an update. Things should return to normal within 5 minutes.");
     // really don't feel like promisfying right now
     stopBot(1); // first stop the running bot
-    setTimeout(updateGNB, 10 * 1000); // now initiate an update 10 seconds later
-    setTimeout(killProcess, 60 * 1000, config.processName); // give that a minute to run and then kill it off
-    setTimeout(startBot, 180 * 1000); // and then start again
+    setTimeout(updateGNB, 30 * 1000); // now initiate an update 30 seconds later
+    setTimeout(killProcess, 3 * 60 * 1000, config.processName); // give that 3 minutes to run and then kill it off
+    setTimeout(startBot, 5 * 60 * 1000); // and then start again
   });
 }
 
@@ -3257,7 +3259,8 @@ function isNewGNBAvailable(url, oldStatsFile) {
         storeJSON(oldStats, config.GNBStats)
         resolve(oldStats);
       } else {
-        reject("Server doesn't report any changes for " + url);
+        SendIt("No GNB updates reported.")
+        reject("Server doesn't report changes for " + url);
       }
     }); // http.request
     req.end();
